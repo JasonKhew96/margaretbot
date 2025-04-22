@@ -1,0 +1,6 @@
+.credentials
+data
+client_secret.json
+config.yaml
+data.db
+*.sh
