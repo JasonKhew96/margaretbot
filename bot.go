@@ -219,7 +219,19 @@ func (b *Bot) handleRegexCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 
-	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("subscribed to %s with regex %s", s[0], s[1]), nil)
+	msg := entityhelper.NewMessage()
+	msg.AddText("subscribed to ")
+	msg.AddEntity(s[0], gotgbot.MessageEntity{
+		Type: "code",
+	})
+	msg.AddText(" with regex ")
+	msg.AddEntity(s[1], gotgbot.MessageEntity{
+		Type: "code",
+	})
+
+	_, err = ctx.EffectiveMessage.Reply(bot, msg.GetText(), &gotgbot.SendMessageOpts{
+		Entities: msg.GetEntities(),
+	})
 
 	return err
 }
@@ -259,7 +271,19 @@ func (b *Bot) handleRegexBanCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 
-	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("subscribed to %s with regexban %s", s[0], s[1]), nil)
+	msg := entityhelper.NewMessage()
+	msg.AddText("subscribed to ")
+	msg.AddEntity(s[0], gotgbot.MessageEntity{
+		Type: "code",
+	})
+	msg.AddText(" with regexban ")
+	msg.AddEntity(s[1], gotgbot.MessageEntity{
+		Type: "code",
+	})
+
+	_, err = ctx.EffectiveMessage.Reply(bot, msg.GetText(), &gotgbot.SendMessageOpts{
+		Entities: msg.GetEntities(),
+	})
 
 	return err
 }
