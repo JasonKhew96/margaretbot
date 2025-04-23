@@ -44,7 +44,7 @@ func NewBot(margaret *MargaretBot) (*Bot, error) {
 		BotClient: &gotgbot.BaseBotClient{
 			Client: http.Client{},
 			DefaultRequestOpts: &gotgbot.RequestOpts{
-				Timeout: time.Second * 15,
+				Timeout: time.Second * 30,
 				APIURL:  botApiUrl,
 			},
 		},
