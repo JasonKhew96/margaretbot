@@ -28,6 +28,7 @@ type Subscription struct {
 	ChannelID string      `boil:"channel_id" json:"channel_id" toml:"channel_id" yaml:"channel_id"`
 	ThreadID  null.Int64  `boil:"thread_id" json:"thread_id,omitempty" toml:"thread_id" yaml:"thread_id,omitempty"`
 	Regex     null.String `boil:"regex" json:"regex,omitempty" toml:"regex" yaml:"regex,omitempty"`
+	RegexBan  null.String `boil:"regex_ban" json:"regex_ban,omitempty" toml:"regex_ban" yaml:"regex_ban,omitempty"`
 	ExpiredAt time.Time   `boil:"expired_at" json:"expired_at" toml:"expired_at" yaml:"expired_at"`
 	CreatedAt time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
@@ -41,6 +42,7 @@ var SubscriptionColumns = struct {
 	ChannelID string
 	ThreadID  string
 	Regex     string
+	RegexBan  string
 	ExpiredAt string
 	CreatedAt string
 	UpdatedAt string
@@ -49,6 +51,7 @@ var SubscriptionColumns = struct {
 	ChannelID: "channel_id",
 	ThreadID:  "thread_id",
 	Regex:     "regex",
+	RegexBan:  "regex_ban",
 	ExpiredAt: "expired_at",
 	CreatedAt: "created_at",
 	UpdatedAt: "updated_at",
@@ -59,6 +62,7 @@ var SubscriptionTableColumns = struct {
 	ChannelID string
 	ThreadID  string
 	Regex     string
+	RegexBan  string
 	ExpiredAt string
 	CreatedAt string
 	UpdatedAt string
@@ -67,6 +71,7 @@ var SubscriptionTableColumns = struct {
 	ChannelID: "subscription.channel_id",
 	ThreadID:  "subscription.thread_id",
 	Regex:     "subscription.regex",
+	RegexBan:  "subscription.regex_ban",
 	ExpiredAt: "subscription.expired_at",
 	CreatedAt: "subscription.created_at",
 	UpdatedAt: "subscription.updated_at",
@@ -161,6 +166,7 @@ var SubscriptionWhere = struct {
 	ChannelID whereHelperstring
 	ThreadID  whereHelpernull_Int64
 	Regex     whereHelpernull_String
+	RegexBan  whereHelpernull_String
 	ExpiredAt whereHelpertime_Time
 	CreatedAt whereHelpertime_Time
 	UpdatedAt whereHelpertime_Time
@@ -169,6 +175,7 @@ var SubscriptionWhere = struct {
 	ChannelID: whereHelperstring{field: "\"subscription\".\"channel_id\""},
 	ThreadID:  whereHelpernull_Int64{field: "\"subscription\".\"thread_id\""},
 	Regex:     whereHelpernull_String{field: "\"subscription\".\"regex\""},
+	RegexBan:  whereHelpernull_String{field: "\"subscription\".\"regex_ban\""},
 	ExpiredAt: whereHelpertime_Time{field: "\"subscription\".\"expired_at\""},
 	CreatedAt: whereHelpertime_Time{field: "\"subscription\".\"created_at\""},
 	UpdatedAt: whereHelpertime_Time{field: "\"subscription\".\"updated_at\""},
@@ -191,9 +198,9 @@ func (*subscriptionR) NewStruct() *subscriptionR {
 type subscriptionL struct{}
 
 var (
-	subscriptionAllColumns            = []string{"id", "channel_id", "thread_id", "regex", "expired_at", "created_at", "updated_at"}
+	subscriptionAllColumns            = []string{"id", "channel_id", "thread_id", "regex", "regex_ban", "expired_at", "created_at", "updated_at"}
 	subscriptionColumnsWithoutDefault = []string{"channel_id", "expired_at"}
-	subscriptionColumnsWithDefault    = []string{"id", "thread_id", "regex", "created_at", "updated_at"}
+	subscriptionColumnsWithDefault    = []string{"id", "thread_id", "regex", "regex_ban", "created_at", "updated_at"}
 	subscriptionPrimaryKeyColumns     = []string{"id"}
 	subscriptionGeneratedColumns      = []string{"id"}
 )

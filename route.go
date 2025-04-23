@@ -413,6 +413,18 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		videoTitle := feed.Entry.Title
 		videoUrl := feed.Entry.Link.Href
 
+		if channel.RegexBan.Valid && channel.RegexBan.String != "" {
+			re, err := regexp.Compile(channel.RegexBan.String)
+			if err != nil {
+				log.Printf("failed to compile regex: %v", err)
+				return
+			}
+			if re.MatchString(videoTitle) {
+				log.Printf("feed title matches regex: %s", videoTitle)
+				return
+			}
+		}
+
 		if channel.Regex.Valid && channel.Regex.String != "" {
 			re, err := regexp.Compile(channel.Regex.String)
 			if err != nil {

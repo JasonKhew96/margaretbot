@@ -75,7 +75,8 @@ func NewBot(margaret *MargaretBot) (*Bot, error) {
 
 	dispatcher.AddHandler(NewCommand("sub", b.handleSubCommand))
 	dispatcher.AddHandler(NewCommand("unsub", b.handleUnsubCommand))
-	dispatcher.AddHandler(NewCommand("re", b.handleReCommand))
+	dispatcher.AddHandler(NewCommand("r", b.handleRegexCommand))
+	dispatcher.AddHandler(NewCommand("rb", b.handleRegexBanCommand))
 	dispatcher.AddHandler(NewCommand("debug", b.handleDebugCommand))
 
 	err = updater.StartPolling(bot, &ext.PollingOpts{
@@ -181,7 +182,7 @@ func (b *Bot) handleUnsubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	return nil
 }
 
-func (b *Bot) handleReCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+func (b *Bot) handleRegexCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveChat.Type != "supergroup" {
 		return nil
 	}
@@ -201,7 +202,7 @@ func (b *Bot) handleReCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 	if len(s) != 2 {
-		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /re <channel_id> <regex>", nil)
+		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /r <channel_id> <regex>", nil)
 		return err
 	}
 	if _, err := regexp.Compile(s[1]); err != nil {
@@ -217,6 +218,46 @@ func (b *Bot) handleReCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	}
 
 	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("subscribed to %s with regex %s", s[0], s[1]), nil)
+
+	return err
+}
+
+func (b *Bot) handleRegexBanCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+	if ctx.EffectiveChat.Type != "supergroup" {
+		return nil
+	}
+	if ctx.EffectiveChat.Id != b.m.c.ChatId {
+		return nil
+	}
+	if !ctx.EffectiveSender.IsUser() {
+		return nil
+	}
+	if ctx.EffectiveSender.User.Id != b.m.c.OwnerId {
+		return nil
+	}
+	text := ctx.EffectiveMessage.Text
+	s, err := shlex.Split(text[4:])
+	if err != nil {
+		_, err := ctx.EffectiveMessage.Reply(bot, err.Error(), nil)
+		return err
+	}
+	if len(s) != 2 {
+		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /rb <channel_id> <regex>", nil)
+		return err
+	}
+	if _, err := regexp.Compile(s[1]); err != nil {
+		_, err := ctx.EffectiveMessage.Reply(bot, err.Error(), nil)
+		return err
+	}
+	if err := b.m.db.UpsertSubscription(s[0], &SubscriptionOpts{
+		Regex: s[1],
+	}); err != nil {
+		log.Println(err)
+		_, err := ctx.EffectiveMessage.Reply(bot, err.Error(), nil)
+		return err
+	}
+
+	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("subscribed to %s with regexban %s", s[0], s[1]), nil)
 
 	return err
 }

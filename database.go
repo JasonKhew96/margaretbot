@@ -12,12 +12,12 @@ import (
 )
 
 /*
-
 CREATE TABLE IF NOT EXISTS subscription (
 	id INTEGER PRIMARY KEY,
 	channel_id TEXT UNIQUE NOT NULL,
 	thread_id INTEGER,
 	regex TEXT,
+	regex_ban TEXT,
 	expired_at TIMESTAMP NOT NULL,
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP

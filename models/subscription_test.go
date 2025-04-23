@@ -568,7 +568,7 @@ func testSubscriptionsSelect(t *testing.T) {
 }
 
 var (
-	subscriptionDBTypes = map[string]string{`ID`: `INTEGER`, `ChannelID`: `TEXT`, `ThreadID`: `INTEGER`, `Regex`: `TEXT`, `ExpiredAt`: `TIMESTAMP`, `CreatedAt`: `TIMESTAMP`, `UpdatedAt`: `TIMESTAMP`}
+	subscriptionDBTypes = map[string]string{`ID`: `INTEGER`, `ChannelID`: `TEXT`, `ThreadID`: `INTEGER`, `Regex`: `TEXT`, `RegexBan`: `TEXT`, `ExpiredAt`: `TIMESTAMP`, `CreatedAt`: `TIMESTAMP`, `UpdatedAt`: `TIMESTAMP`}
 	_                   = bytes.MinRead
 )
 
