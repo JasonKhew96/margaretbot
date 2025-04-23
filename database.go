@@ -60,6 +60,7 @@ type SubscriptionOpts struct {
 	ExpiredAt time.Time
 	ThreadID  int64
 	Regex     string
+	RegexBan  string
 }
 
 func (d *Database) UpsertSubscription(channelID string, opts *SubscriptionOpts) error {
@@ -79,6 +80,10 @@ func (d *Database) UpsertSubscription(channelID string, opts *SubscriptionOpts) 
 		if opts.Regex != "" {
 			c.Regex = null.StringFrom(opts.Regex)
 			whitelist = append(whitelist, "regex")
+		}
+		if opts.RegexBan != "" {
+			c.RegexBan = null.StringFrom(opts.RegexBan)
+			whitelist = append(whitelist, "regex_ban")
 		}
 	}
 	return c.Upsert(d.ctx, d.db, true, []string{"channel_id"}, boil.Whitelist(whitelist...), boil.Infer())

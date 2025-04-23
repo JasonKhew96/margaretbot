@@ -250,7 +250,7 @@ func (b *Bot) handleRegexBanCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 	if err := b.m.db.UpsertSubscription(s[0], &SubscriptionOpts{
-		Regex: s[1],
+		RegexBan: s[1],
 	}); err != nil {
 		log.Println(err)
 		_, err := ctx.EffectiveMessage.Reply(bot, err.Error(), nil)
