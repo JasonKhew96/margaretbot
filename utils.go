@@ -117,7 +117,6 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 	})
 	msg.AddText("\n")
 	if len(caption.VideoDescription) > 0 {
-		msg.AddText(caption.VideoDescription + "\n")
 		msg.AddEntity(caption.VideoDescription, gotgbot.MessageEntity{
 			Type: "expandable_blockquote",
 		})
