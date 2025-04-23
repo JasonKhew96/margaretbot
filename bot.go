@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/JasonKhew96/margaretbot/entityhelper"
 	"github.com/JasonKhew96/margaretbot/websub"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
@@ -78,6 +79,7 @@ func NewBot(margaret *MargaretBot) (*Bot, error) {
 	dispatcher.AddHandler(NewCommand("r", b.handleRegexCommand))
 	dispatcher.AddHandler(NewCommand("rb", b.handleRegexBanCommand))
 	dispatcher.AddHandler(NewCommand("debug", b.handleDebugCommand))
+	dispatcher.AddHandler(NewCommand("l", b.handleListCommand))
 
 	err = updater.StartPolling(bot, &ext.PollingOpts{
 		DropPendingUpdates: false,
@@ -258,6 +260,66 @@ func (b *Bot) handleRegexBanCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	}
 
 	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("subscribed to %s with regexban %s", s[0], s[1]), nil)
+
+	return err
+}
+
+func (b *Bot) handleListCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+	if ctx.EffectiveChat.Type != "supergroup" {
+		return nil
+	}
+	if ctx.EffectiveChat.Id != b.m.c.ChatId {
+		return nil
+	}
+	if !ctx.EffectiveSender.IsUser() {
+		return nil
+	}
+	if ctx.EffectiveSender.User.Id != b.m.c.OwnerId {
+		return nil
+	}
+
+	subscriptions, err := b.m.db.GetSubscriptionsByThreadID(ctx.EffectiveMessage.MessageThreadId)
+	if err != nil {
+		log.Println(err)
+		_, err := ctx.EffectiveMessage.Reply(bot, err.Error(), nil)
+		return err
+	}
+
+	if len(subscriptions) == 0 {
+		_, err := ctx.EffectiveMessage.Reply(bot, "No subscriptions found", nil)
+		return err
+	}
+
+	msg := entityhelper.NewMessage()
+	for _, sub := range subscriptions {
+		quotedMsg := entityhelper.NewMessage()
+		quotedMsg.AddText("channel_id: ")
+		quotedMsg.AddEntity(sub.ChannelID, gotgbot.MessageEntity{
+			Type: "code",
+		})
+		quotedMsg.AddText("\n")
+		if sub.Regex.Valid && sub.Regex.String != "" {
+			quotedMsg.AddText("regex: ")
+			quotedMsg.AddEntity(sub.Regex.String, gotgbot.MessageEntity{
+				Type: "code",
+			})
+			quotedMsg.AddText("\n")
+		}
+		if sub.RegexBan.Valid && sub.RegexBan.String != "" {
+			quotedMsg.AddText("regexban: ")
+			quotedMsg.AddEntity(sub.RegexBan.String, gotgbot.MessageEntity{
+				Type: "code",
+			})
+			quotedMsg.AddText("\n")
+		}
+		msg.AddNestedEntity(quotedMsg, gotgbot.MessageEntity{
+			Type: "expandable_blockquote",
+		})
+	}
+
+	_, err = ctx.EffectiveMessage.Reply(bot, msg.GetText(), &gotgbot.SendMessageOpts{
+		Entities: msg.GetEntities(),
+	})
 
 	return err
 }

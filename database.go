@@ -98,6 +98,10 @@ func (d *Database) GetSubscription(channelID string) (*models.Subscription, erro
 	return models.Subscriptions(models.SubscriptionWhere.ChannelID.EQ(channelID)).One(d.ctx, d.db)
 }
 
+func (d *Database) GetSubscriptionsByThreadID(threadID int64) (models.SubscriptionSlice, error) {
+	return models.Subscriptions(models.SubscriptionWhere.ThreadID.EQ(null.Int64From(threadID))).All(d.ctx, d.db)
+}
+
 func (d *Database) GetSubscriptions() (models.SubscriptionSlice, error) {
 	return models.Subscriptions().All(d.ctx, d.db)
 }
