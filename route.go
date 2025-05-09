@@ -88,12 +88,14 @@ func (s *WebhookHandler) processAPI() {
 				ChannelUrl:    q.channelUrl,
 				PublishedTime: q.publishedTime,
 			})
-			s.m.b.msgChannel <- Message{
-				text:     caption,
-				videoUrl: q.videoUrl,
-				// imageUrl:        fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId),
-				messageThreadId: q.threadId,
-				entities:        entities,
+			s.m.b.msgChannel <- MultiMessage{
+				First: &Message{
+					text:     caption,
+					videoUrl: q.videoUrl,
+					// imageUrl:        fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId),
+					messageThreadId: q.threadId,
+					entities:        entities,
+				},
 			}
 		}
 
@@ -195,7 +197,9 @@ func (s *WebhookHandler) processAPI() {
 			if thumbnailUrl != "" {
 				msg.imageUrl = thumbnailUrl
 			}
-			s.m.b.msgChannel <- msg
+			s.m.b.msgChannel <- MultiMessage{
+				First: &msg,
+			}
 		} else {
 			caption, entities := BuildCaption(&Caption{
 				VideoTitle: videoTitle,
@@ -223,19 +227,21 @@ func (s *WebhookHandler) processAPI() {
 			if thumbnailUrl != "" {
 				msg.imageUrl = thumbnailUrl
 			}
-			s.m.b.msgChannel <- msg
-			s.m.b.msgChannel <- Message{
-				text:            videoDescription,
-				messageThreadId: q.threadId,
-				entities: []gotgbot.MessageEntity{
-					{
-						Type:   "expandable_blockquote",
-						Offset: 0,
-						Length: getUtf16Len(videoDescription),
+			s.m.b.msgChannel <- MultiMessage{
+				First: &msg,
+				Last: &Message{
+					text:            videoDescription,
+					messageThreadId: q.threadId,
+					entities: []gotgbot.MessageEntity{
+						{
+							Type:   "expandable_blockquote",
+							Offset: 0,
+							Length: getUtf16Len(videoDescription),
+						},
 					},
-				},
-				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-					IsDisabled: true,
+					linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+						IsDisabled: true,
+					},
 				},
 			}
 		}
@@ -290,9 +296,11 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(challenge))
 
-			s.m.b.msgChannel <- Message{
-				text:            fmt.Sprintf("unsubscribed from channel %s", channelId),
-				messageThreadId: threadIdInt,
+			s.m.b.msgChannel <- MultiMessage{
+				First: &Message{
+					text:            fmt.Sprintf("unsubscribed from channel %s", channelId),
+					messageThreadId: threadIdInt,
+				},
 			}
 			return
 		}
@@ -320,9 +328,11 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				log.Printf("failed to upsert subscription: %v", err)
 				return
 			}
-			s.m.b.msgChannel <- Message{
-				text:            fmt.Sprintf("subscribed to channel %s", channelId),
-				messageThreadId: threadIdInt,
+			s.m.b.msgChannel <- MultiMessage{
+				First: &Message{
+					text:            fmt.Sprintf("subscribed to channel %s", channelId),
+					messageThreadId: threadIdInt,
+				},
 			}
 		}
 

@@ -23,7 +23,7 @@ type Bot struct {
 
 	b *gotgbot.Bot
 
-	msgChannel chan Message
+	msgChannel chan MultiMessage
 
 	limiter *rate.Limiter
 
@@ -61,7 +61,7 @@ func NewBot(margaret *MargaretBot) (*Bot, error) {
 	b := &Bot{
 		m:          margaret,
 		b:          bot,
-		msgChannel: make(chan Message),
+		msgChannel: make(chan MultiMessage),
 		limiter:    limiter,
 		ctx:        context.Background(),
 	}
