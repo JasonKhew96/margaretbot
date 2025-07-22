@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/JasonKhew96/margaretbot/entityhelper"
@@ -146,6 +147,162 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	}
 
 	log.Printf("subscribing to %s...", channelId)
+
+	// swap prefix UC to UU for default playlist
+	// UCuAXFkgsw1L7xaCfnd5JJOw channel id
+	// UUuAXFkgsw1L7xaCfnd5JJOw default playlist id a.k.a. "uploads"
+
+	playlistItems, err := b.m.y.service.PlaylistItems.List([]string{"contentDetails"}).MaxResults(8).Do()
+	if err != nil {
+		return err
+	}
+
+	var videoIdList []string
+
+	for _, item := range playlistItems.Items {
+		videoId := item.ContentDetails.VideoId
+		isShort, err := b.m.y.IsShort(videoId)
+		if err != nil {
+			log.Printf("failed to check if video is short: %v", err)
+		}
+		if isShort {
+			log.Printf("video is a short: %s", videoId)
+			continue
+		}
+		videoIdList = append(videoIdList, videoId)
+
+		if err := b.m.db.UpsertCache(videoId); err != nil {
+			log.Printf("unable to insert cache: %v", err)
+			continue
+		}
+	}
+
+	videoList, err := b.m.y.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
+	if err != nil {
+		log.Printf("failed to get video list: %v", err)
+		return err
+	}
+	for _, video := range videoList.Items {
+		videoId := video.Id
+
+		videoTitle := video.Snippet.Title
+		videoUrl := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoId)
+		// thumbnailUrl := fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId)
+		videoDescription := video.Snippet.Description
+		var allowedRegion string
+		var blockedRegion string
+		if video.ContentDetails.RegionRestriction != nil {
+			if len(video.ContentDetails.RegionRestriction.Blocked) >= 249 {
+				continue
+			}
+
+			if video.ContentDetails.RegionRestriction.Allowed != nil {
+				allowedRegion = strings.Join(video.ContentDetails.RegionRestriction.Allowed, ", ")
+			}
+			if video.ContentDetails.RegionRestriction.Blocked != nil {
+				blockedRegion = strings.Join(video.ContentDetails.RegionRestriction.Blocked, ", ")
+			}
+		}
+		var scheduledStartTime string
+		if video.LiveStreamingDetails != nil && video.LiveStreamingDetails.ScheduledStartTime != "" {
+			scheduledStartTime = video.LiveStreamingDetails.ScheduledStartTime
+		}
+		channelName := video.Snippet.ChannelTitle
+		publishedTime := video.Snippet.PublishedAt
+
+		var thumbnailUrl string
+		if video.Snippet.Thumbnails != nil && video.Snippet.Thumbnails.Maxres != nil {
+			thumbnailUrl = video.Snippet.Thumbnails.Maxres.Url
+		}
+
+		var timezone string
+		if video.Snippet.DefaultLanguage != "" {
+			timezone = GetTimeZone(video.Snippet.DefaultLanguage)
+		} else if video.Snippet.DefaultAudioLanguage != "" {
+			timezone = GetTimeZone(video.Snippet.DefaultAudioLanguage)
+		} else {
+			timezone = "UTC"
+		}
+
+		// duration
+
+		caption, entities := BuildCaption(&Caption{
+			VideoTitle:         videoTitle,
+			VideoUrl:           videoUrl,
+			VideoDescription:   videoDescription,
+			ChannelName:        channelName,
+			ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
+			AllowedRegion:      allowedRegion,
+			BlockedRegion:      blockedRegion,
+			ScheduledStartTime: scheduledStartTime,
+			PublishedTime:      publishedTime,
+			TimeZone:           timezone,
+		})
+
+		if len(caption) < 1024 {
+			msg := Message{
+				text:            caption,
+				videoUrl:        videoUrl,
+				messageThreadId: messageThreadId,
+				entities:        entities,
+				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+					Url:              videoUrl,
+					PreferLargeMedia: true,
+					ShowAboveText:    true,
+				},
+			}
+			if thumbnailUrl != "" {
+				msg.imageUrl = thumbnailUrl
+			}
+			b.m.b.msgChannel <- MultiMessage{
+				First: &msg,
+			}
+		} else {
+			caption, entities := BuildCaption(&Caption{
+				VideoTitle: videoTitle,
+				VideoUrl:   videoUrl,
+				// VideoDescription:   videoDescription,
+				ChannelName:        channelName,
+				ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
+				AllowedRegion:      allowedRegion,
+				BlockedRegion:      blockedRegion,
+				ScheduledStartTime: scheduledStartTime,
+				PublishedTime:      publishedTime,
+				TimeZone:           timezone,
+			})
+			msg := Message{
+				text:            caption,
+				videoUrl:        videoUrl,
+				messageThreadId: messageThreadId,
+				entities:        entities,
+				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+					Url:              videoUrl,
+					PreferLargeMedia: true,
+					ShowAboveText:    true,
+				},
+			}
+			if thumbnailUrl != "" {
+				msg.imageUrl = thumbnailUrl
+			}
+			b.m.b.msgChannel <- MultiMessage{
+				First: &msg,
+				Last: &Message{
+					text:            videoDescription,
+					messageThreadId: messageThreadId,
+					entities: []gotgbot.MessageEntity{
+						{
+							Type:   "expandable_blockquote",
+							Offset: 0,
+							Length: getUtf16Len(videoDescription),
+						},
+					},
+					linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+						IsDisabled: true,
+					},
+				},
+			}
+		}
+	}
 
 	return nil
 }

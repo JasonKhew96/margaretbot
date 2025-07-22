@@ -49,21 +49,6 @@ func NewWebhookHandler(m *MargaretBot) (*WebhookHandler, error) {
 	}, nil
 }
 
-func (s *WebhookHandler) GetTimeZone(language string) string {
-	switch language {
-	case "zh-Hant":
-		return "Asia/Taipei"
-	case "zh-Hans":
-		return "Asia/Shanghai"
-	case "ja":
-		return "Asia/Tokyo"
-	case "ko":
-		return "Asia/Seoul"
-	default:
-		return "UTC"
-	}
-}
-
 func (s *WebhookHandler) processAPI() {
 	var videoIdList []string
 	newQueue := make(map[string]Queue, 0)
@@ -76,7 +61,7 @@ func (s *WebhookHandler) processAPI() {
 			break
 		}
 	}
-	videoList, err := s.m.y.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).MaxResults(50).Do()
+	videoList, err := s.m.y.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
 	if err != nil {
 		log.Printf("failed to get video list: %v", err)
 
@@ -160,9 +145,9 @@ func (s *WebhookHandler) processAPI() {
 
 		var timezone string
 		if video.Snippet.DefaultLanguage != "" {
-			timezone = s.GetTimeZone(video.Snippet.DefaultLanguage)
+			timezone = GetTimeZone(video.Snippet.DefaultLanguage)
 		} else if video.Snippet.DefaultAudioLanguage != "" {
-			timezone = s.GetTimeZone(video.Snippet.DefaultAudioLanguage)
+			timezone = GetTimeZone(video.Snippet.DefaultAudioLanguage)
 		} else {
 			timezone = "UTC"
 		}

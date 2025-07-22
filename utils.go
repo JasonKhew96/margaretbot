@@ -123,3 +123,18 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 
 	return msg.GetText(), msg.GetEntities()
 }
+
+func GetTimeZone(language string) string {
+	switch language {
+	case "zh-Hant":
+		return "Asia/Taipei"
+	case "zh-Hans":
+		return "Asia/Shanghai"
+	case "ja":
+		return "Asia/Tokyo"
+	case "ko":
+		return "Asia/Seoul"
+	default:
+		return "UTC"
+	}
+}
