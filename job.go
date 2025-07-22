@@ -66,6 +66,7 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 	if err != nil {
 		log.Println("failed to send message:", first, err)
 		fallback()
+		return
 	}
 	last := multiMsg.Last
 	if last == nil {
