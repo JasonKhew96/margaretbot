@@ -152,7 +152,9 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	// UCuAXFkgsw1L7xaCfnd5JJOw channel id
 	// UUuAXFkgsw1L7xaCfnd5JJOw default playlist id a.k.a. "uploads"
 
-	playlistItems, err := b.m.y.service.PlaylistItems.List([]string{"contentDetails"}).MaxResults(8).Do()
+	playlistId := "UU" + channelId[2:]
+
+	playlistItems, err := b.m.y.service.PlaylistItems.List([]string{"contentDetails"}).PlaylistId(playlistId).MaxResults(8).Do()
 	if err != nil {
 		return err
 	}
