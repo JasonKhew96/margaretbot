@@ -161,8 +161,8 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 
 	var videoIdList []string
 
-	for _, item := range playlistItems.Items {
-		videoId := item.ContentDetails.VideoId
+	for i := len(playlistItems.Items) - 1; i >= 0; i-- {
+		videoId := playlistItems.Items[i].ContentDetails.VideoId
 		isShort, err := b.m.y.IsShort(videoId)
 		if err != nil {
 			log.Printf("failed to check if video is short: %v", err)
