@@ -257,21 +257,23 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method == http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
 		query := r.URL.Query()
 		mode := query.Get("hub.mode")
 		// topic := query.Get("hub.topic")
 		challenge := query.Get("hub.challenge")
 		leaseSeconds := query.Get("hub.lease_seconds")
 
-		if mode == "denied" {
+		switch mode {
+		case "denied":
 			reason := query.Get("hub.reason")
 			s.m.b.b.SendMessage(s.m.c.ChatId, fmt.Sprintf("failed to subscribe to channel %s: %s", channelId, reason), &gotgbot.SendMessageOpts{
 				MessageThreadId: threadIdInt,
 			})
 			w.WriteHeader(http.StatusOK)
 			return
-		} else if mode == "unsubscribe" {
+		case "unsubscribe":
 			err := s.m.db.DeleteSubscription(channelId)
 			if err != nil {
 				http.Error(w, "failed to delete subscription", http.StatusInternalServerError)
@@ -334,7 +336,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(challenge))
-	} else if r.Method == http.MethodPost {
+	case http.MethodPost:
 		w.WriteHeader(http.StatusOK)
 
 		contentType := r.Header.Get("Content-Type")
