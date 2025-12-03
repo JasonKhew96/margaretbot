@@ -288,18 +288,20 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 			}
 			b.m.b.msgChannel <- MultiMessage{
 				First: &msg,
-				Last: &Message{
-					text:            videoDescription,
-					messageThreadId: messageThreadId,
-					entities: []gotgbot.MessageEntity{
-						{
-							Type:   "expandable_blockquote",
-							Offset: 0,
-							Length: getUtf16Len(videoDescription),
+				Last: []Message{
+					{
+						text:            videoDescription,
+						messageThreadId: messageThreadId,
+						entities: []gotgbot.MessageEntity{
+							{
+								Type:   "expandable_blockquote",
+								Offset: 0,
+								Length: getUtf16Len(videoDescription),
+							},
 						},
-					},
-					linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-						IsDisabled: true,
+						linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+							IsDisabled: true,
+						},
 					},
 				},
 			}

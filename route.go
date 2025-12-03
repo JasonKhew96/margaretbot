@@ -157,7 +157,7 @@ func (s *WebhookHandler) processAPI() {
 
 		// duration
 
-		caption, entities := BuildCaption(&Caption{
+		c := &Caption{
 			VideoTitle:         videoTitle,
 			VideoUrl:           videoUrl,
 			VideoDescription:   videoDescription,
@@ -168,7 +168,8 @@ func (s *WebhookHandler) processAPI() {
 			ScheduledStartTime: scheduledStartTime,
 			PublishedTime:      publishedTime,
 			TimeZone:           timezone,
-		})
+		}
+		caption, entities := BuildCaption(c)
 
 		if len(caption) < 1024 {
 			msg := Message{
@@ -188,19 +189,12 @@ func (s *WebhookHandler) processAPI() {
 			s.m.b.msgChannel <- MultiMessage{
 				First: &msg,
 			}
-		} else {
-			caption, entities := BuildCaption(&Caption{
-				VideoTitle: videoTitle,
-				VideoUrl:   videoUrl,
-				// VideoDescription:   videoDescription,
-				ChannelName:        channelName,
-				ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
-				AllowedRegion:      allowedRegion,
-				BlockedRegion:      blockedRegion,
-				ScheduledStartTime: scheduledStartTime,
-				PublishedTime:      publishedTime,
-				TimeZone:           timezone,
-			})
+			return
+		}
+
+		c.VideoDescription = ""
+		caption, entities = BuildCaption(c)
+		if len(caption) < 1024 {
 			msg := Message{
 				text:            caption,
 				videoUrl:        videoUrl,
@@ -217,23 +211,76 @@ func (s *WebhookHandler) processAPI() {
 			}
 			s.m.b.msgChannel <- MultiMessage{
 				First: &msg,
-				Last: &Message{
-					text:            videoDescription,
-					messageThreadId: q.threadId,
-					entities: []gotgbot.MessageEntity{
-						{
-							Type:   "expandable_blockquote",
-							Offset: 0,
-							Length: getUtf16Len(videoDescription),
+				Last: []Message{
+					{
+						text:            videoDescription,
+						messageThreadId: q.threadId,
+						entities: []gotgbot.MessageEntity{
+							{
+								Type:   "expandable_blockquote",
+								Offset: 0,
+								Length: getUtf16Len(videoDescription),
+							},
+						},
+						linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+							IsDisabled: true,
 						},
 					},
-					linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-						IsDisabled: true,
+				},
+			}
+			return
+		}
+
+		c.AllowedRegion = ""
+		c.BlockedRegion = ""
+		caption, entities = BuildCaption(c)
+		if len(caption) < 1024 {
+			msg := Message{
+				text:            caption,
+				videoUrl:        videoUrl,
+				messageThreadId: q.threadId,
+				entities:        entities,
+				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+					Url:              videoUrl,
+					PreferLargeMedia: true,
+					ShowAboveText:    true,
+				},
+			}
+			if thumbnailUrl != "" {
+				msg.imageUrl = thumbnailUrl
+			}
+			regionMsg, regionEntities := BuildCaption(&Caption{
+				AllowedRegion: allowedRegion,
+				BlockedRegion: blockedRegion,
+			})
+			s.m.b.msgChannel <- MultiMessage{
+				First: &msg,
+				Last: []Message{
+					{
+						text:            regionMsg,
+						messageThreadId: q.threadId,
+						entities:        regionEntities,
+						linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+							IsDisabled: true,
+						},
+					},
+					{
+						text:            videoDescription,
+						messageThreadId: q.threadId,
+						entities: []gotgbot.MessageEntity{
+							{
+								Type:   "expandable_blockquote",
+								Offset: 0,
+								Length: getUtf16Len(videoDescription),
+							},
+						},
+						linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+							IsDisabled: true,
+						},
 					},
 				},
 			}
 		}
-
 	}
 }
 

@@ -17,7 +17,7 @@ type Message struct {
 
 type MultiMessage struct {
 	First *Message
-	Last  *Message
+	Last  []Message
 }
 
 func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
@@ -39,16 +39,18 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 		if last == nil {
 			return
 		}
-		b.limiter.Wait(b.ctx)
-		if _, err := b.m.b.b.SendMessage(chatId, last.text, &gotgbot.SendMessageOpts{
-			MessageThreadId:    last.messageThreadId,
-			Entities:           last.entities,
-			LinkPreviewOptions: last.linkPreviewOptions,
-			ReplyParameters: &gotgbot.ReplyParameters{
-				MessageId: msg.MessageId,
-			},
-		}); err != nil {
-			log.Printf("failed to send message: %v+\n%v+", last, err)
+		for _, m := range multiMsg.Last {
+			b.limiter.Wait(b.ctx)
+			if _, err := b.m.b.b.SendMessage(chatId, m.text, &gotgbot.SendMessageOpts{
+				MessageThreadId:    m.messageThreadId,
+				Entities:           m.entities,
+				LinkPreviewOptions: m.linkPreviewOptions,
+				ReplyParameters: &gotgbot.ReplyParameters{
+					MessageId: msg.MessageId,
+				},
+			}); err != nil {
+				log.Printf("failed to send message: %v+\n%v+", last, err)
+			}
 		}
 	}
 	if multiMsg.First.imageUrl == "" {
@@ -78,16 +80,18 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 	if last == nil {
 		return
 	}
-	b.limiter.Wait(b.ctx)
-	if _, err := b.m.b.b.SendMessage(chatId, last.text, &gotgbot.SendMessageOpts{
-		MessageThreadId:    last.messageThreadId,
-		Entities:           last.entities,
-		LinkPreviewOptions: last.linkPreviewOptions,
-		ReplyParameters: &gotgbot.ReplyParameters{
-			MessageId: msg.MessageId,
-		},
-	}); err != nil {
-		log.Printf("failed to send message: %v+\n%v+", last, err)
+	for _, m := range last {
+		b.limiter.Wait(b.ctx)
+		if _, err := b.m.b.b.SendMessage(chatId, m.text, &gotgbot.SendMessageOpts{
+			MessageThreadId:    m.messageThreadId,
+			Entities:           m.entities,
+			LinkPreviewOptions: m.linkPreviewOptions,
+			ReplyParameters: &gotgbot.ReplyParameters{
+				MessageId: msg.MessageId,
+			},
+		}); err != nil {
+			log.Printf("failed to send message: %v+\n%v+", last, err)
+		}
 	}
 }
 
