@@ -58,7 +58,13 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 
 	b.limiter.Wait(b.ctx)
 	first := multiMsg.First
-	msg, err := b.m.b.b.SendPhoto(chatId, gotgbot.InputFileByURL(first.imageUrl), &gotgbot.SendPhotoOpts{
+
+	inputFile, err := downloadToBuffer(first.imageUrl)
+	if err != nil {
+		inputFile = gotgbot.InputFileByURL(first.imageUrl)
+	}
+
+	msg, err := b.m.b.b.SendPhoto(chatId, inputFile, &gotgbot.SendPhotoOpts{
 		MessageThreadId: first.messageThreadId,
 		Caption:         first.text,
 		CaptionEntities: first.entities,

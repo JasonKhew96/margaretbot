@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 	"unicode/utf16"
 
 	"github.com/JasonKhew96/margaretbot/entityhelper"
 	"github.com/PaulSonOfLars/gotgbot/v2"
+	"github.com/friendsofgo/errors"
 )
 
 var allMdV2 = []string{"_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"}
@@ -137,4 +140,44 @@ func GetTimeZone(language string) string {
 	default:
 		return "UTC"
 	}
+}
+
+type FileTooLargeError struct{}
+
+func (e *FileTooLargeError) Error() string {
+	return "file too large"
+}
+
+func downloadToBuffer(url string) (gotgbot.InputFileOrString, error) {
+	defaultClient := &http.Client{
+		Timeout: 15 * time.Second,
+	}
+	resp, err := defaultClient.Get(url)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to download file")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("failed to download file")
+	}
+
+	if resp.ContentLength > 10*1024*1024 {
+		return nil, &FileTooLargeError{}
+	}
+
+	buf := new(bytes.Buffer)
+	if _, err := buf.ReadFrom(resp.Body); err != nil {
+		return nil, errors.Wrap(err, "failed to read file")
+	}
+
+	fn := "cover.bin"
+	switch resp.Header.Get("Content-Type") {
+	case "image/jpeg":
+		fn = "cover.jpg"
+	case "image/png":
+		fn = "cover.png"
+	}
+
+	return gotgbot.InputFileByReader(fn, buf), nil
 }
