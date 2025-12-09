@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -61,17 +60,22 @@ func getUtf16Len(s string) int64 {
 func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 
 	msg := entityhelper.NewMessage()
-	msg.AddEntity(fmt.Sprintf("%s\n", caption.VideoTitle), gotgbot.MessageEntity{
-		Type: "text_link",
-		Url:  caption.VideoUrl,
-	})
+	if caption.VideoTitle != "" {
+		msg.AddEntity(caption.VideoTitle, gotgbot.MessageEntity{
+			Type: "text_link",
+			Url:  caption.VideoUrl,
+		})
+		msg.AddText("\n")
+	}
 	quotedText := entityhelper.NewMessage()
-	quotedText.AddText("频道: ")
-	quotedText.AddEntity(caption.ChannelName, gotgbot.MessageEntity{
-		Type: "text_link",
-		Url:  caption.ChannelUrl,
-	})
-	quotedText.AddText("\n")
+	if caption.ChannelName != "" {
+		quotedText.AddText("频道: ")
+		quotedText.AddEntity(caption.ChannelName, gotgbot.MessageEntity{
+			Type: "text_link",
+			Url:  caption.ChannelUrl,
+		})
+		quotedText.AddText("\n")
+	}
 	if len(caption.ScheduledStartTime) > 0 {
 		quotedText.AddText("首播时间: ")
 		parsedTime, err := time.Parse("2006-01-02T15:04:05Z", caption.ScheduledStartTime)
