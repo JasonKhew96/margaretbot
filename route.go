@@ -432,6 +432,16 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		subs, err := s.m.db.GetSubscriptionsByThreadID(threadIdInt)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				log.Printf("subscriptions not found: %s", channelId)
+				return
+			}
+			log.Printf("failed to get subscriptions: %v", err)
+			return
+		}
+
 		channelName := feed.Entry.Author.Name
 		channelUri := feed.Entry.Author.URI
 
@@ -442,7 +452,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			})
 			if err != nil {
 				log.Printf("failed to upsert subscription: %v", err)
-			} else {
+			} else if len(subs) == 1 {
 				log.Printf("updating channel title %s: %s", channelId, channelName)
 				if _, err := s.m.b.b.EditForumTopic(s.m.c.ChatId, channel.ThreadID.Int64, &gotgbot.EditForumTopicOpts{
 					Name: channelName,
