@@ -24,57 +24,62 @@ import (
 
 // Subscription is an object representing the database table.
 type Subscription struct {
-	ID        null.Int64  `boil:"id" json:"id,omitempty" toml:"id" yaml:"id,omitempty"`
-	ChannelID string      `boil:"channel_id" json:"channel_id" toml:"channel_id" yaml:"channel_id"`
-	ThreadID  null.Int64  `boil:"thread_id" json:"thread_id,omitempty" toml:"thread_id" yaml:"thread_id,omitempty"`
-	Regex     null.String `boil:"regex" json:"regex,omitempty" toml:"regex" yaml:"regex,omitempty"`
-	RegexBan  null.String `boil:"regex_ban" json:"regex_ban,omitempty" toml:"regex_ban" yaml:"regex_ban,omitempty"`
-	ExpiredAt time.Time   `boil:"expired_at" json:"expired_at" toml:"expired_at" yaml:"expired_at"`
-	CreatedAt time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ID           null.Int64  `boil:"id" json:"id,omitempty" toml:"id" yaml:"id,omitempty"`
+	ChannelID    string      `boil:"channel_id" json:"channel_id" toml:"channel_id" yaml:"channel_id"`
+	ThreadID     null.Int64  `boil:"thread_id" json:"thread_id,omitempty" toml:"thread_id" yaml:"thread_id,omitempty"`
+	Regex        null.String `boil:"regex" json:"regex,omitempty" toml:"regex" yaml:"regex,omitempty"`
+	RegexBan     null.String `boil:"regex_ban" json:"regex_ban,omitempty" toml:"regex_ban" yaml:"regex_ban,omitempty"`
+	ExpiredAt    time.Time   `boil:"expired_at" json:"expired_at" toml:"expired_at" yaml:"expired_at"`
+	CreatedAt    time.Time   `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt    time.Time   `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	ChannelTitle null.String `boil:"channel_title" json:"channel_title,omitempty" toml:"channel_title" yaml:"channel_title,omitempty"`
 
 	R *subscriptionR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L subscriptionL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var SubscriptionColumns = struct {
-	ID        string
-	ChannelID string
-	ThreadID  string
-	Regex     string
-	RegexBan  string
-	ExpiredAt string
-	CreatedAt string
-	UpdatedAt string
+	ID           string
+	ChannelID    string
+	ThreadID     string
+	Regex        string
+	RegexBan     string
+	ExpiredAt    string
+	CreatedAt    string
+	UpdatedAt    string
+	ChannelTitle string
 }{
-	ID:        "id",
-	ChannelID: "channel_id",
-	ThreadID:  "thread_id",
-	Regex:     "regex",
-	RegexBan:  "regex_ban",
-	ExpiredAt: "expired_at",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
+	ID:           "id",
+	ChannelID:    "channel_id",
+	ThreadID:     "thread_id",
+	Regex:        "regex",
+	RegexBan:     "regex_ban",
+	ExpiredAt:    "expired_at",
+	CreatedAt:    "created_at",
+	UpdatedAt:    "updated_at",
+	ChannelTitle: "channel_title",
 }
 
 var SubscriptionTableColumns = struct {
-	ID        string
-	ChannelID string
-	ThreadID  string
-	Regex     string
-	RegexBan  string
-	ExpiredAt string
-	CreatedAt string
-	UpdatedAt string
+	ID           string
+	ChannelID    string
+	ThreadID     string
+	Regex        string
+	RegexBan     string
+	ExpiredAt    string
+	CreatedAt    string
+	UpdatedAt    string
+	ChannelTitle string
 }{
-	ID:        "subscription.id",
-	ChannelID: "subscription.channel_id",
-	ThreadID:  "subscription.thread_id",
-	Regex:     "subscription.regex",
-	RegexBan:  "subscription.regex_ban",
-	ExpiredAt: "subscription.expired_at",
-	CreatedAt: "subscription.created_at",
-	UpdatedAt: "subscription.updated_at",
+	ID:           "subscription.id",
+	ChannelID:    "subscription.channel_id",
+	ThreadID:     "subscription.thread_id",
+	Regex:        "subscription.regex",
+	RegexBan:     "subscription.regex_ban",
+	ExpiredAt:    "subscription.expired_at",
+	CreatedAt:    "subscription.created_at",
+	UpdatedAt:    "subscription.updated_at",
+	ChannelTitle: "subscription.channel_title",
 }
 
 // Generated where
@@ -162,23 +167,25 @@ func (w whereHelpernull_String) IsNull() qm.QueryMod    { return qmhelper.WhereI
 func (w whereHelpernull_String) IsNotNull() qm.QueryMod { return qmhelper.WhereIsNotNull(w.field) }
 
 var SubscriptionWhere = struct {
-	ID        whereHelpernull_Int64
-	ChannelID whereHelperstring
-	ThreadID  whereHelpernull_Int64
-	Regex     whereHelpernull_String
-	RegexBan  whereHelpernull_String
-	ExpiredAt whereHelpertime_Time
-	CreatedAt whereHelpertime_Time
-	UpdatedAt whereHelpertime_Time
+	ID           whereHelpernull_Int64
+	ChannelID    whereHelperstring
+	ThreadID     whereHelpernull_Int64
+	Regex        whereHelpernull_String
+	RegexBan     whereHelpernull_String
+	ExpiredAt    whereHelpertime_Time
+	CreatedAt    whereHelpertime_Time
+	UpdatedAt    whereHelpertime_Time
+	ChannelTitle whereHelpernull_String
 }{
-	ID:        whereHelpernull_Int64{field: "\"subscription\".\"id\""},
-	ChannelID: whereHelperstring{field: "\"subscription\".\"channel_id\""},
-	ThreadID:  whereHelpernull_Int64{field: "\"subscription\".\"thread_id\""},
-	Regex:     whereHelpernull_String{field: "\"subscription\".\"regex\""},
-	RegexBan:  whereHelpernull_String{field: "\"subscription\".\"regex_ban\""},
-	ExpiredAt: whereHelpertime_Time{field: "\"subscription\".\"expired_at\""},
-	CreatedAt: whereHelpertime_Time{field: "\"subscription\".\"created_at\""},
-	UpdatedAt: whereHelpertime_Time{field: "\"subscription\".\"updated_at\""},
+	ID:           whereHelpernull_Int64{field: "\"subscription\".\"id\""},
+	ChannelID:    whereHelperstring{field: "\"subscription\".\"channel_id\""},
+	ThreadID:     whereHelpernull_Int64{field: "\"subscription\".\"thread_id\""},
+	Regex:        whereHelpernull_String{field: "\"subscription\".\"regex\""},
+	RegexBan:     whereHelpernull_String{field: "\"subscription\".\"regex_ban\""},
+	ExpiredAt:    whereHelpertime_Time{field: "\"subscription\".\"expired_at\""},
+	CreatedAt:    whereHelpertime_Time{field: "\"subscription\".\"created_at\""},
+	UpdatedAt:    whereHelpertime_Time{field: "\"subscription\".\"updated_at\""},
+	ChannelTitle: whereHelpernull_String{field: "\"subscription\".\"channel_title\""},
 }
 
 // SubscriptionRels is where relationship names are stored.
@@ -198,9 +205,9 @@ func (*subscriptionR) NewStruct() *subscriptionR {
 type subscriptionL struct{}
 
 var (
-	subscriptionAllColumns            = []string{"id", "channel_id", "thread_id", "regex", "regex_ban", "expired_at", "created_at", "updated_at"}
+	subscriptionAllColumns            = []string{"id", "channel_id", "thread_id", "regex", "regex_ban", "expired_at", "created_at", "updated_at", "channel_title"}
 	subscriptionColumnsWithoutDefault = []string{"channel_id", "expired_at"}
-	subscriptionColumnsWithDefault    = []string{"id", "thread_id", "regex", "regex_ban", "created_at", "updated_at"}
+	subscriptionColumnsWithDefault    = []string{"id", "thread_id", "regex", "regex_ban", "created_at", "updated_at", "channel_title"}
 	subscriptionPrimaryKeyColumns     = []string{"id"}
 	subscriptionGeneratedColumns      = []string{"id"}
 )

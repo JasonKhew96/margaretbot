@@ -432,6 +432,25 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		channelName := feed.Entry.Author.Name
+		channelUri := feed.Entry.Author.URI
+
+		if channel.ChannelTitle.String != channelName {
+			err = s.m.db.UpsertSubscription(channelId, &SubscriptionOpts{
+				ChannelTitle: channelName,
+				ThreadID:     threadIdInt,
+			})
+			if err != nil {
+				log.Printf("failed to upsert subscription: %v", err)
+			} else {
+				if _, err := s.m.b.b.EditForumTopic(s.m.c.ChatId, channel.ThreadID.Int64, &gotgbot.EditForumTopicOpts{
+					Name: channelName,
+				}); err != nil {
+					log.Printf("failed to EditForumTopic: %v", err)
+				}
+			}
+		}
+
 		if feed.DeletedEntry.Link.Href != "" {
 			// ignore deleted entry
 			log.Printf("deleted video: %s", feed.DeletedEntry.Link.Href)
@@ -492,9 +511,6 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-
-		channelName := feed.Entry.Author.Name
-		channelUri := feed.Entry.Author.URI
 
 		// thumbnailUrl := fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId)
 

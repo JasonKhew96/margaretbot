@@ -15,6 +15,7 @@ import (
 CREATE TABLE IF NOT EXISTS subscription (
 	id INTEGER PRIMARY KEY,
 	channel_id TEXT UNIQUE NOT NULL,
+	channel_title TEXT,
 	thread_id INTEGER,
 	regex TEXT,
 	regex_ban TEXT,
@@ -57,10 +58,11 @@ func (d *Database) Close() error {
 }
 
 type SubscriptionOpts struct {
-	ExpiredAt time.Time
-	ThreadID  int64
-	Regex     string
-	RegexBan  string
+	ChannelTitle string
+	ExpiredAt    time.Time
+	ThreadID     int64
+	Regex        string
+	RegexBan     string
 }
 
 func (d *Database) UpsertSubscription(channelID string, opts *SubscriptionOpts) error {
@@ -69,6 +71,10 @@ func (d *Database) UpsertSubscription(channelID string, opts *SubscriptionOpts) 
 	}
 	whitelist := []string{}
 	if opts != nil {
+		if opts.ChannelTitle != "" {
+			c.ChannelTitle = null.StringFrom(opts.ChannelTitle)
+			whitelist = append(whitelist, "channel_title")
+		}
 		if !opts.ExpiredAt.IsZero() {
 			c.ExpiredAt = opts.ExpiredAt
 			whitelist = append(whitelist, "expired_at")
