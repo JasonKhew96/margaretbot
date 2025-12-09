@@ -443,6 +443,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Printf("failed to upsert subscription: %v", err)
 			} else {
+				log.Printf("updating channel title %s: %s", channelId, channelName)
 				if _, err := s.m.b.b.EditForumTopic(s.m.c.ChatId, channel.ThreadID.Int64, &gotgbot.EditForumTopicOpts{
 					Name: channelName,
 				}); err != nil {
