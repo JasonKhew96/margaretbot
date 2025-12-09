@@ -33,7 +33,7 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 			LinkPreviewOptions: first.linkPreviewOptions,
 		})
 		if err != nil {
-			log.Printf("failed to send message: %v+\n%v+", first, err)
+			log.Printf("failed to send message: %+v\n%+v", first, err)
 		}
 		last := multiMsg.Last
 		if last == nil {
@@ -49,7 +49,7 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 					MessageId: msg.MessageId,
 				},
 			}); err != nil {
-				log.Printf("failed to send message: %v+\n%v+", last, err)
+				log.Printf("failed to send message: %+v\n%+v", last, err)
 			}
 		}
 	}
@@ -72,7 +72,7 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 		CaptionEntities: first.entities,
 	})
 	if err != nil {
-		log.Printf("failed to send message: %v+\n%v+", first, err)
+		log.Printf("failed to send message: %+v\n%+v", first, err)
 		fallback()
 		return
 	}
@@ -90,7 +90,7 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 				MessageId: msg.MessageId,
 			},
 		}); err != nil {
-			log.Printf("failed to send message: %v+\n%v+", last, err)
+			log.Printf("failed to send message: %+v\n%+v", last, err)
 		}
 	}
 }
