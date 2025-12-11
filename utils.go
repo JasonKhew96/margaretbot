@@ -10,6 +10,7 @@ import (
 	"github.com/JasonKhew96/margaretbot/entityhelper"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/friendsofgo/errors"
+	"github.com/sosodev/duration"
 )
 
 var allMdV2 = []string{"_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"}
@@ -44,6 +45,7 @@ type Caption struct {
 	VideoUrl   string
 	// ThumbnailUrl       string
 	VideoDescription   string
+	VideoDuration      string
 	ChannelName        string
 	ChannelUrl         string
 	AllowedRegion      string
@@ -104,6 +106,19 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 			})
 		}
 		quotedText.AddText("\n")
+	}
+	if len(caption.VideoDuration) > 0 {
+		quotedText.AddText("时长: ")
+		d, err := duration.Parse(caption.VideoDuration)
+		if err != nil {
+			quotedText.AddEntity(caption.VideoDuration, gotgbot.MessageEntity{
+				Type: "code",
+			})
+		} else {
+			quotedText.AddEntity(d.ToTimeDuration().String(), gotgbot.MessageEntity{
+				Type: "code",
+			})
+		}
 	}
 	if len(caption.AllowedRegion) > 0 {
 		quotedText.AddText("允许地区: ")

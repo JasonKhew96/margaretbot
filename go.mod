@@ -13,6 +13,7 @@ require (
 	github.com/friendsofgo/errors v0.9.2
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/pkg/errors v0.9.1
+	github.com/sosodev/duration v1.3.1
 	github.com/spf13/viper v1.21.0
 	golang.org/x/oauth2 v0.33.0
 	golang.org/x/time v0.14.0

@@ -157,8 +157,6 @@ func (s *WebhookHandler) processAPI() {
 			timezone = "UTC"
 		}
 
-		// duration
-
 		isForward := false
 		if s.mb.config.ForwardChatId != 0 {
 			if !slices.Contains(s.mb.config.NoForwardChannelIds, video.Snippet.ChannelId) {
@@ -177,6 +175,7 @@ func (s *WebhookHandler) processAPI() {
 			VideoTitle:         videoTitle,
 			VideoUrl:           videoUrl,
 			VideoDescription:   videoDescription,
+			VideoDuration:      video.ContentDetails.Duration,
 			ChannelName:        channelName,
 			ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
 			AllowedRegion:      allowedRegion,
