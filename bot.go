@@ -19,10 +19,10 @@ import (
 	"golang.org/x/time/rate"
 )
 
-type Bot struct {
-	m *MargaretBot
+type BotHelper struct {
+	mb *MargaretBot
 
-	b *gotgbot.Bot
+	bot *gotgbot.Bot
 
 	msgChannel chan MultiMessage
 
@@ -35,13 +35,13 @@ func NewCommand(command string, handler func(*gotgbot.Bot, *ext.Context) error) 
 	return handlers.NewCommand(command, handler).SetTriggers([]rune("/!"))
 }
 
-func NewBot(margaret *MargaretBot) (*Bot, error) {
+func NewBot(mb *MargaretBot) error {
 	botApiUrl := gotgbot.DefaultAPIURL
-	if margaret.c.BotApiUrl != "" {
-		botApiUrl = margaret.c.BotApiUrl
+	if mb.config.BotApiUrl != "" {
+		botApiUrl = mb.config.BotApiUrl
 	}
 
-	bot, err := gotgbot.NewBot(margaret.c.BotToken, &gotgbot.BotOpts{
+	bot, err := gotgbot.NewBot(mb.config.BotToken, &gotgbot.BotOpts{
 		BotClient: &gotgbot.BaseBotClient{
 			Client: http.Client{},
 			DefaultRequestOpts: &gotgbot.RequestOpts{
@@ -54,18 +54,19 @@ func NewBot(margaret *MargaretBot) (*Bot, error) {
 		},
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	limiter := rate.NewLimiter(rate.Every(time.Minute/20), 1)
 
-	b := &Bot{
-		m:          margaret,
-		b:          bot,
+	b := &BotHelper{
+		mb:         mb,
+		bot:        bot,
 		msgChannel: make(chan MultiMessage),
 		limiter:    limiter,
 		ctx:        context.Background(),
 	}
+	mb.bot = b
 
 	dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{
 		Error: func(b *gotgbot.Bot, ctx *ext.Context, err error) ext.DispatcherAction {
@@ -94,36 +95,36 @@ func NewBot(margaret *MargaretBot) (*Bot, error) {
 		},
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	go b.telegramWorker(margaret.c.ChatId, b.msgChannel)
+	go b.telegramWorker(mb.config.ChatId, b.msgChannel)
 
 	log.Printf("Bot %s started", bot.Username)
 
-	return b, nil
+	return nil
 }
 
-func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveChat.Type != "supergroup" {
 		return nil
 	}
-	if ctx.EffectiveChat.Id != b.m.c.ChatId {
+	if ctx.EffectiveChat.Id != b.mb.config.ChatId {
 		return nil
 	}
 	if !ctx.EffectiveSender.IsUser() {
 		return nil
 	}
-	if ctx.EffectiveSender.User.Id != b.m.c.OwnerId {
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
 		return nil
 	}
 	messageThreadId := ctx.EffectiveMessage.MessageThreadId
 	text := ctx.EffectiveMessage.Text
 	channelId := text[5:]
 
-	newSecret := sha256.Sum256([]byte(b.m.c.Secret))
+	newSecret := sha256.Sum256([]byte(b.mb.config.Secret))
 
-	callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", b.m.c.ServerDomain, fmt.Sprintf("%x", newSecret), messageThreadId, channelId)
+	callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", b.mb.config.ServerDomain, fmt.Sprintf("%x", newSecret), messageThreadId, channelId)
 	topicUrl := fmt.Sprintf("https://www.youtube.com/xml/feeds/videos.xml?channel_id=%s", channelId)
 
 	// subs, err := b.db.GetSubscription(channelId)
@@ -135,7 +136,7 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	// ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("already subscribed at https://"))
 	// }
 
-	if err := b.m.ws.Subscribe(websub.ModeSubscribe, callbackUrl, topicUrl, &websub.SubscribeOpts{
+	if err := b.mb.ws.Subscribe(websub.ModeSubscribe, callbackUrl, topicUrl, &websub.SubscribeOpts{
 		LeaseSeconds: 86400,
 	}); err != nil {
 		log.Println(err)
@@ -154,7 +155,7 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 
 	playlistId := "UU" + channelId[2:]
 
-	playlistItems, err := b.m.y.service.PlaylistItems.List([]string{"contentDetails"}).PlaylistId(playlistId).MaxResults(8).Do()
+	playlistItems, err := b.mb.yt.service.PlaylistItems.List([]string{"contentDetails"}).PlaylistId(playlistId).MaxResults(8).Do()
 	if err != nil {
 		return err
 	}
@@ -163,7 +164,7 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 
 	for i := len(playlistItems.Items) - 1; i >= 0; i-- {
 		videoId := playlistItems.Items[i].ContentDetails.VideoId
-		isShort, err := b.m.y.IsShort(videoId)
+		isShort, err := b.mb.yt.IsShort(videoId)
 		if err != nil {
 			log.Printf("failed to check if video is short: %v", err)
 		}
@@ -173,13 +174,13 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		}
 		videoIdList = append(videoIdList, videoId)
 
-		if err := b.m.db.UpsertCache(videoId); err != nil {
+		if err := b.mb.db.UpsertCache(videoId); err != nil {
 			log.Printf("unable to insert cache: %v", err)
 			continue
 		}
 	}
 
-	videoList, err := b.m.y.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
+	videoList, err := b.mb.yt.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
 	if err != nil {
 		log.Printf("failed to get video list: %v", err)
 		return err
@@ -256,7 +257,7 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 			if thumbnailUrl != "" {
 				msg.imageUrl = thumbnailUrl
 			}
-			b.m.b.msgChannel <- MultiMessage{
+			b.mb.bot.msgChannel <- MultiMessage{
 				First: &msg,
 			}
 		} else {
@@ -286,7 +287,7 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 			if thumbnailUrl != "" {
 				msg.imageUrl = thumbnailUrl
 			}
-			b.m.b.msgChannel <- MultiMessage{
+			b.mb.bot.msgChannel <- MultiMessage{
 				First: &msg,
 				Last: []Message{
 					{
@@ -311,29 +312,29 @@ func (b *Bot) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	return nil
 }
 
-func (b *Bot) handleUnsubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+func (b *BotHelper) handleUnsubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveChat.Type != "supergroup" {
 		return nil
 	}
-	if ctx.EffectiveChat.Id != b.m.c.ChatId {
+	if ctx.EffectiveChat.Id != b.mb.config.ChatId {
 		return nil
 	}
 	if !ctx.EffectiveSender.IsUser() {
 		return nil
 	}
-	if ctx.EffectiveSender.User.Id != b.m.c.OwnerId {
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
 		return nil
 	}
 	messageThreadId := ctx.EffectiveMessage.MessageThreadId
 	text := ctx.EffectiveMessage.Text
 	channelId := text[7:]
 
-	newSecret := sha256.Sum256([]byte(b.m.c.Secret))
+	newSecret := sha256.Sum256([]byte(b.mb.config.Secret))
 
-	callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", b.m.c.ServerDomain, fmt.Sprintf("%x", newSecret), messageThreadId, channelId)
+	callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", b.mb.config.ServerDomain, fmt.Sprintf("%x", newSecret), messageThreadId, channelId)
 	topicUrl := fmt.Sprintf("https://www.youtube.com/xml/feeds/videos.xml?channel_id=%s", channelId)
 
-	if err := b.m.ws.Subscribe(websub.ModeUnsubscribe, callbackUrl, topicUrl, nil); err != nil {
+	if err := b.mb.ws.Subscribe(websub.ModeUnsubscribe, callbackUrl, topicUrl, nil); err != nil {
 		log.Println(err)
 		_, err := ctx.EffectiveMessage.Reply(bot, err.Error(), nil)
 		if err != nil {
@@ -345,17 +346,17 @@ func (b *Bot) handleUnsubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	return nil
 }
 
-func (b *Bot) handleRegexCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+func (b *BotHelper) handleRegexCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveChat.Type != "supergroup" {
 		return nil
 	}
-	if ctx.EffectiveChat.Id != b.m.c.ChatId {
+	if ctx.EffectiveChat.Id != b.mb.config.ChatId {
 		return nil
 	}
 	if !ctx.EffectiveSender.IsUser() {
 		return nil
 	}
-	if ctx.EffectiveSender.User.Id != b.m.c.OwnerId {
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
 		return nil
 	}
 	text := ctx.EffectiveMessage.Text
@@ -372,7 +373,7 @@ func (b *Bot) handleRegexCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		_, err := ctx.EffectiveMessage.Reply(bot, err.Error(), nil)
 		return err
 	}
-	if err := b.m.db.UpsertSubscription(s[0], &SubscriptionOpts{
+	if err := b.mb.db.UpsertSubscription(s[0], &SubscriptionOpts{
 		Regex: s[1],
 	}); err != nil {
 		log.Println(err)
@@ -397,17 +398,17 @@ func (b *Bot) handleRegexCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	return err
 }
 
-func (b *Bot) handleRegexBanCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+func (b *BotHelper) handleRegexBanCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveChat.Type != "supergroup" {
 		return nil
 	}
-	if ctx.EffectiveChat.Id != b.m.c.ChatId {
+	if ctx.EffectiveChat.Id != b.mb.config.ChatId {
 		return nil
 	}
 	if !ctx.EffectiveSender.IsUser() {
 		return nil
 	}
-	if ctx.EffectiveSender.User.Id != b.m.c.OwnerId {
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
 		return nil
 	}
 	text := ctx.EffectiveMessage.Text
@@ -424,7 +425,7 @@ func (b *Bot) handleRegexBanCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		_, err := ctx.EffectiveMessage.Reply(bot, err.Error(), nil)
 		return err
 	}
-	if err := b.m.db.UpsertSubscription(s[0], &SubscriptionOpts{
+	if err := b.mb.db.UpsertSubscription(s[0], &SubscriptionOpts{
 		RegexBan: s[1],
 	}); err != nil {
 		log.Println(err)
@@ -449,21 +450,21 @@ func (b *Bot) handleRegexBanCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	return err
 }
 
-func (b *Bot) handleListCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+func (b *BotHelper) handleListCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveChat.Type != "supergroup" {
 		return nil
 	}
-	if ctx.EffectiveChat.Id != b.m.c.ChatId {
+	if ctx.EffectiveChat.Id != b.mb.config.ChatId {
 		return nil
 	}
 	if !ctx.EffectiveSender.IsUser() {
 		return nil
 	}
-	if ctx.EffectiveSender.User.Id != b.m.c.OwnerId {
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
 		return nil
 	}
 
-	subscriptions, err := b.m.db.GetSubscriptionsByThreadID(ctx.EffectiveMessage.MessageThreadId)
+	subscriptions, err := b.mb.db.GetSubscriptionsByThreadID(ctx.EffectiveMessage.MessageThreadId)
 	if err != nil {
 		log.Println(err)
 		_, err := ctx.EffectiveMessage.Reply(bot, err.Error(), nil)
@@ -509,23 +510,23 @@ func (b *Bot) handleListCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	return err
 }
 
-func (b *Bot) handleDebugCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+func (b *BotHelper) handleDebugCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveChat.Type != "supergroup" {
 		return nil
 	}
-	if ctx.EffectiveChat.Id != b.m.c.ChatId {
+	if ctx.EffectiveChat.Id != b.mb.config.ChatId {
 		return nil
 	}
 	if !ctx.EffectiveSender.IsUser() {
 		return nil
 	}
-	if ctx.EffectiveSender.User.Id != b.m.c.OwnerId {
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
 		return nil
 	}
 	messageThreadId := ctx.EffectiveMessage.MessageThreadId
 	videoId := "dQw4w9WgXcQ"
 
-	b.m.wh.queue[videoId] = Queue{
+	b.mb.wh.queue[videoId] = Queue{
 		threadId:      messageThreadId,
 		videoTitle:    "TEST TEST TEST",
 		videoUrl:      "https://www.youtube.com/watch?v=" + videoId,
@@ -534,7 +535,7 @@ func (b *Bot) handleDebugCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		publishedTime: time.Now().Format(time.RFC3339),
 	}
 
-	b.m.wh.debounced(b.m.wh.processAPI)
+	b.mb.wh.debounced(b.mb.wh.processAPI)
 
 	return nil
 }

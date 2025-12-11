@@ -20,14 +20,14 @@ type MultiMessage struct {
 	Last  []Message
 }
 
-func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
+func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
 	if multiMsg.First == nil {
 		return
 	}
 	fallback := func() {
 		b.limiter.Wait(b.ctx)
 		first := multiMsg.First
-		msg, err := b.m.b.b.SendMessage(chatId, first.text, &gotgbot.SendMessageOpts{
+		msg, err := b.mb.bot.bot.SendMessage(chatId, first.text, &gotgbot.SendMessageOpts{
 			MessageThreadId:    first.messageThreadId,
 			Entities:           first.entities,
 			LinkPreviewOptions: first.linkPreviewOptions,
@@ -41,7 +41,7 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 		}
 		for _, m := range multiMsg.Last {
 			b.limiter.Wait(b.ctx)
-			if _, err := b.m.b.b.SendMessage(chatId, m.text, &gotgbot.SendMessageOpts{
+			if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &gotgbot.SendMessageOpts{
 				MessageThreadId:    m.messageThreadId,
 				Entities:           m.entities,
 				LinkPreviewOptions: m.linkPreviewOptions,
@@ -66,7 +66,7 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 		inputFile = gotgbot.InputFileByURL(first.imageUrl)
 	}
 
-	msg, err := b.m.b.b.SendPhoto(chatId, inputFile, &gotgbot.SendPhotoOpts{
+	msg, err := b.mb.bot.bot.SendPhoto(chatId, inputFile, &gotgbot.SendPhotoOpts{
 		MessageThreadId: first.messageThreadId,
 		Caption:         first.text,
 		CaptionEntities: first.entities,
@@ -82,7 +82,7 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 	}
 	for _, m := range last {
 		b.limiter.Wait(b.ctx)
-		if _, err := b.m.b.b.SendMessage(chatId, m.text, &gotgbot.SendMessageOpts{
+		if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &gotgbot.SendMessageOpts{
 			MessageThreadId:    m.messageThreadId,
 			Entities:           m.entities,
 			LinkPreviewOptions: m.linkPreviewOptions,
@@ -95,7 +95,7 @@ func (b *Bot) work(chatId int64, multiMsg MultiMessage) {
 	}
 }
 
-func (b *Bot) telegramWorker(chatId int64, multiMsgs <-chan MultiMessage) {
+func (b *BotHelper) telegramWorker(chatId int64, multiMsgs <-chan MultiMessage) {
 	for multiMsg := range multiMsgs {
 		b.work(chatId, multiMsg)
 	}

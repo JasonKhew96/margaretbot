@@ -10,19 +10,19 @@ import (
 )
 
 type MargaretBot struct {
-	c  *Config
-	db *Database
-	b  *Bot
-	y  *YoutubeHelper
-	wh *WebhookHandler
-	ws *websub.WebSub
+	config *Config
+	db     *DbHelper
+	bot    *BotHelper
+	yt     *YoutubeHelper
+	wh     *WebhookHandler
+	ws     *websub.WebSub
 }
 
 func main() {
 	var err error
 	m := &MargaretBot{}
 
-	m.c, err = parseConfig()
+	m.config, err = parseConfig()
 	if err != nil {
 		fmt.Printf("failed to parse config: %v\n", err)
 		return
@@ -35,27 +35,23 @@ func main() {
 	}
 	defer m.db.Close()
 
-	m.y, err = NewYoutubeHelper()
+	m.yt, err = NewYoutubeHelper()
 	if err != nil {
 		fmt.Printf("failed to create youtube helper: %v\n", err)
 		return
 	}
-	defer m.y.Close()
+	defer m.yt.Close()
 
-	m.b, err = NewBot(m)
+	err = NewBot(m)
 	if err != nil {
 		fmt.Printf("failed to create bot: %v\n", err)
 		return
 	}
 
-	m.wh, err = NewWebhookHandler(m)
-	if err != nil {
-		fmt.Printf("failed to create webhook server: %v\n", err)
-		return
-	}
+	NewWebhookHandler(m)
 
 	subscribeLink := "https://pubsubhubbub.appspot.com/subscribe"
-	addr := fmt.Sprintf(":%d", m.c.Port)
+	addr := fmt.Sprintf(":%d", m.config.Port)
 	m.ws = websub.NewWebSub(subscribeLink, addr, m.wh.handleWebhook, &websub.WebSubOpts{
 		Pattern:       "/webhook/{secret}/{thread_id}/{channel_id}",
 		ClientTimeout: 10 * time.Second,
@@ -90,8 +86,8 @@ func loop(margaret *MargaretBot) {
 		if time.Now().Add(24 * time.Hour).After(sub.ExpiredAt) {
 			log.Println("renewing subscription for channel", sub.ChannelID)
 			time.Sleep(5 * time.Second)
-			newSecret := sha256.Sum256([]byte(margaret.c.Secret))
-			callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", margaret.c.ServerDomain, fmt.Sprintf("%x", newSecret), sub.ThreadID.Int64, sub.ChannelID)
+			newSecret := sha256.Sum256([]byte(margaret.config.Secret))
+			callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", margaret.config.ServerDomain, fmt.Sprintf("%x", newSecret), sub.ThreadID.Int64, sub.ChannelID)
 			topicUrl := fmt.Sprintf("https://www.youtube.com/xml/feeds/videos.xml?channel_id=%s", sub.ChannelID)
 
 			if err := margaret.ws.Subscribe(websub.ModeSubscribe, callbackUrl, topicUrl, nil); err != nil {

@@ -29,7 +29,7 @@ type Queue struct {
 }
 
 type WebhookHandler struct {
-	m *MargaretBot
+	mb *MargaretBot
 
 	// config        *Config
 	// db            *Database
@@ -41,12 +41,12 @@ type WebhookHandler struct {
 	debounced func(f func())
 }
 
-func NewWebhookHandler(m *MargaretBot) (*WebhookHandler, error) {
-	return &WebhookHandler{
-		m:         m,
+func NewWebhookHandler(mb *MargaretBot) {
+	mb.wh = &WebhookHandler{
+		mb:        mb,
 		queue:     make(map[string]Queue),
 		debounced: debounce.New(2500 * time.Millisecond),
-	}, nil
+	}
 }
 
 func (s *WebhookHandler) processAPI() {
@@ -61,7 +61,7 @@ func (s *WebhookHandler) processAPI() {
 			break
 		}
 	}
-	videoList, err := s.m.y.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
+	videoList, err := s.mb.yt.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
 	if err != nil {
 		log.Printf("failed to get video list: %v", err)
 
@@ -73,7 +73,7 @@ func (s *WebhookHandler) processAPI() {
 				ChannelUrl:    q.channelUrl,
 				PublishedTime: q.publishedTime,
 			})
-			s.m.b.msgChannel <- MultiMessage{
+			s.mb.bot.msgChannel <- MultiMessage{
 				First: &Message{
 					text:     caption,
 					videoUrl: q.videoUrl,
@@ -186,7 +186,7 @@ func (s *WebhookHandler) processAPI() {
 			if thumbnailUrl != "" {
 				msg.imageUrl = thumbnailUrl
 			}
-			s.m.b.msgChannel <- MultiMessage{
+			s.mb.bot.msgChannel <- MultiMessage{
 				First: &msg,
 			}
 			return
@@ -209,7 +209,7 @@ func (s *WebhookHandler) processAPI() {
 			if thumbnailUrl != "" {
 				msg.imageUrl = thumbnailUrl
 			}
-			s.m.b.msgChannel <- MultiMessage{
+			s.mb.bot.msgChannel <- MultiMessage{
 				First: &msg,
 				Last: []Message{
 					{
@@ -253,7 +253,7 @@ func (s *WebhookHandler) processAPI() {
 				AllowedRegion: allowedRegion,
 				BlockedRegion: blockedRegion,
 			})
-			s.m.b.msgChannel <- MultiMessage{
+			s.mb.bot.msgChannel <- MultiMessage{
 				First: &msg,
 				Last: []Message{
 					{
@@ -300,7 +300,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h := sha256.New()
-	h.Write([]byte(s.m.c.Secret))
+	h.Write([]byte(s.mb.config.Secret))
 	expectedSecret := h.Sum(nil)
 	if secret != fmt.Sprintf("%x", expectedSecret) {
 		http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
@@ -318,13 +318,13 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		switch mode {
 		case "denied":
 			reason := query.Get("hub.reason")
-			s.m.b.b.SendMessage(s.m.c.ChatId, fmt.Sprintf("failed to subscribe to channel %s: %s", channelId, reason), &gotgbot.SendMessageOpts{
+			s.mb.bot.bot.SendMessage(s.mb.config.ChatId, fmt.Sprintf("failed to subscribe to channel %s: %s", channelId, reason), &gotgbot.SendMessageOpts{
 				MessageThreadId: threadIdInt,
 			})
 			w.WriteHeader(http.StatusOK)
 			return
 		case "unsubscribe":
-			err := s.m.db.DeleteSubscription(channelId)
+			err := s.mb.db.DeleteSubscription(channelId)
 			if err != nil {
 				http.Error(w, "failed to delete subscription", http.StatusInternalServerError)
 				return
@@ -333,7 +333,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(challenge))
 
-			s.m.b.msgChannel <- MultiMessage{
+			s.mb.bot.msgChannel <- MultiMessage{
 				First: &Message{
 					text:            fmt.Sprintf("unsubscribed from channel %s", channelId),
 					messageThreadId: threadIdInt,
@@ -349,7 +349,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		_, err = s.m.db.GetSubscription(channelId)
+		_, err = s.mb.db.GetSubscription(channelId)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			http.Error(w, "failed to get subscription", http.StatusInternalServerError)
 			log.Printf("failed to get subscription: %v", err)
@@ -357,7 +357,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if errors.Is(err, sql.ErrNoRows) {
-			if err := s.m.db.UpsertSubscription(channelId, &SubscriptionOpts{
+			if err := s.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
 				ExpiredAt: time.Now().Add(10 * 24 * 60 * time.Minute),
 				ThreadID:  threadIdInt,
 			}); err != nil {
@@ -365,7 +365,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				log.Printf("failed to upsert subscription: %v", err)
 				return
 			}
-			s.m.b.msgChannel <- MultiMessage{
+			s.mb.bot.msgChannel <- MultiMessage{
 				First: &Message{
 					text:            fmt.Sprintf("subscribed to channel %s", channelId),
 					messageThreadId: threadIdInt,
@@ -374,7 +374,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 
 		expiredAt := time.Now().Add(time.Duration(leaseSecondsInt) * time.Second)
-		err = s.m.db.UpsertSubscription(channelId, &SubscriptionOpts{
+		err = s.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
 			ExpiredAt: expiredAt,
 			ThreadID:  threadIdInt,
 		})
@@ -422,7 +422,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		channel, err := s.m.db.GetSubscription(channelId)
+		channel, err := s.mb.db.GetSubscription(channelId)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				log.Printf("channel not found: %s", channelId)
@@ -432,7 +432,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		subs, err := s.m.db.GetSubscriptionsByThreadID(threadIdInt)
+		subs, err := s.mb.db.GetSubscriptionsByThreadID(threadIdInt)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				log.Printf("subscriptions not found: %s", channelId)
@@ -446,7 +446,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		channelUri := feed.Entry.Author.URI
 
 		if channel.ChannelTitle.String != channelName {
-			err = s.m.db.UpsertSubscription(channelId, &SubscriptionOpts{
+			err = s.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
 				ChannelTitle: channelName,
 				ThreadID:     threadIdInt,
 			})
@@ -454,7 +454,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				log.Printf("failed to upsert subscription: %v", err)
 			} else if len(subs) == 1 {
 				log.Printf("updating channel title %s: %s", channelId, channelName)
-				if _, err := s.m.b.b.EditForumTopic(s.m.c.ChatId, channel.ThreadID.Int64, &gotgbot.EditForumTopicOpts{
+				if _, err := s.mb.bot.bot.EditForumTopic(s.mb.config.ChatId, channel.ThreadID.Int64, &gotgbot.EditForumTopicOpts{
 					Name: channelName,
 				}); err != nil {
 					log.Printf("failed to EditForumTopic: %v", err)
@@ -474,7 +474,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		isCached, err := s.m.db.IsCached(videoId)
+		isCached, err := s.mb.db.IsCached(videoId)
 		if err != nil {
 			log.Printf("get isCached failed: %v", err)
 			return
@@ -482,12 +482,12 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		if isCached {
 			return
 		}
-		if err := s.m.db.UpsertCache(videoId); err != nil {
+		if err := s.mb.db.UpsertCache(videoId); err != nil {
 			log.Printf("unable to insert cache: %v", err)
 			return
 		}
 
-		isShort, err := s.m.y.IsShort(videoId)
+		isShort, err := s.mb.yt.IsShort(videoId)
 		if err != nil {
 			log.Printf("failed to check if video is short: %v", err)
 		}

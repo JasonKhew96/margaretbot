@@ -34,12 +34,12 @@ CREATE TABLE IF NOT EXISTS cache (
 
 */
 
-type Database struct {
+type DbHelper struct {
 	db  *sql.DB
 	ctx context.Context
 }
 
-func NewDatabaseHelper() (*Database, error) {
+func NewDatabaseHelper() (*DbHelper, error) {
 	db, err := sql.Open("sqlite", "data.db?cache=shared")
 	if err != nil {
 		return nil, err
@@ -47,13 +47,13 @@ func NewDatabaseHelper() (*Database, error) {
 
 	db.SetMaxOpenConns(1)
 
-	return &Database{
+	return &DbHelper{
 		db:  db,
 		ctx: context.Background(),
 	}, nil
 }
 
-func (d *Database) Close() error {
+func (d *DbHelper) Close() error {
 	return d.db.Close()
 }
 
@@ -65,7 +65,7 @@ type SubscriptionOpts struct {
 	RegexBan     string
 }
 
-func (d *Database) UpsertSubscription(channelID string, opts *SubscriptionOpts) error {
+func (d *DbHelper) UpsertSubscription(channelID string, opts *SubscriptionOpts) error {
 	c := models.Subscription{
 		ChannelID: channelID,
 	}
@@ -95,36 +95,36 @@ func (d *Database) UpsertSubscription(channelID string, opts *SubscriptionOpts) 
 	return c.Upsert(d.ctx, d.db, true, []string{"channel_id"}, boil.Whitelist(whitelist...), boil.Infer())
 }
 
-func (d *Database) DeleteSubscription(channelID string) error {
+func (d *DbHelper) DeleteSubscription(channelID string) error {
 	_, err := models.Subscriptions(models.SubscriptionWhere.ChannelID.EQ(channelID)).DeleteAll(d.ctx, d.db)
 	return err
 }
 
-func (d *Database) GetSubscription(channelID string) (*models.Subscription, error) {
+func (d *DbHelper) GetSubscription(channelID string) (*models.Subscription, error) {
 	return models.Subscriptions(models.SubscriptionWhere.ChannelID.EQ(channelID)).One(d.ctx, d.db)
 }
 
-func (d *Database) GetSubscriptionsByThreadID(threadID int64) (models.SubscriptionSlice, error) {
+func (d *DbHelper) GetSubscriptionsByThreadID(threadID int64) (models.SubscriptionSlice, error) {
 	return models.Subscriptions(models.SubscriptionWhere.ThreadID.EQ(null.Int64From(threadID))).All(d.ctx, d.db)
 }
 
-func (d *Database) GetSubscriptions() (models.SubscriptionSlice, error) {
+func (d *DbHelper) GetSubscriptions() (models.SubscriptionSlice, error) {
 	return models.Subscriptions().All(d.ctx, d.db)
 }
 
-func (d *Database) UpsertCache(videoId string) error {
+func (d *DbHelper) UpsertCache(videoId string) error {
 	c := models.Cache{
 		VideoID: videoId,
 	}
 	return c.Upsert(d.ctx, d.db, false, []string{"video_id"}, boil.Infer(), boil.Infer())
 }
 
-func (d *Database) IsCached(videoId string) (bool, error) {
+func (d *DbHelper) IsCached(videoId string) (bool, error) {
 	count, err := models.Caches(models.CacheWhere.VideoID.EQ(videoId)).Count(d.ctx, d.db)
 	return count > 0, err
 }
 
-func (d *Database) DeleteCache() error {
+func (d *DbHelper) DeleteCache() error {
 	_, err := models.Caches(models.CacheWhere.CreatedAt.LT(time.Now().Add(-time.Hour*24*7))).DeleteAll(d.ctx, d.db)
 	return err
 }
