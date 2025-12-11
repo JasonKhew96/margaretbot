@@ -543,9 +543,6 @@ func (b *BotHelper) handleDebugCommand(bot *gotgbot.Bot, ctx *ext.Context) error
 }
 
 func (b *BotHelper) handleReloadCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
-	if ctx.EffectiveChat.Type != "supergroup" {
-		return nil
-	}
 	if !ctx.EffectiveSender.IsUser() {
 		return nil
 	}
