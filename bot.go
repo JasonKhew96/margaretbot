@@ -25,6 +25,7 @@ type BotHelper struct {
 	bot *gotgbot.Bot
 
 	msgChannel chan MultiMessage
+	msgForward chan MultiMessage
 
 	limiter *rate.Limiter
 
@@ -63,6 +64,7 @@ func NewBot(mb *MargaretBot) error {
 		mb:         mb,
 		bot:        bot,
 		msgChannel: make(chan MultiMessage),
+		msgForward: make(chan MultiMessage),
 		limiter:    limiter,
 		ctx:        context.Background(),
 	}
@@ -82,6 +84,7 @@ func NewBot(mb *MargaretBot) error {
 	dispatcher.AddHandler(NewCommand("rb", b.handleRegexBanCommand))
 	dispatcher.AddHandler(NewCommand("debug", b.handleDebugCommand))
 	dispatcher.AddHandler(NewCommand("l", b.handleListCommand))
+	dispatcher.AddHandler(NewCommand("reload", b.handleReloadCommand))
 
 	err = updater.StartPolling(bot, &ext.PollingOpts{
 		DropPendingUpdates: false,
@@ -99,6 +102,7 @@ func NewBot(mb *MargaretBot) error {
 	}
 
 	go b.telegramWorker(mb.config.ChatId, b.msgChannel)
+	go b.telegramWorker(mb.config.ForwardChatId, b.msgForward)
 
 	log.Printf("Bot %s started", bot.Username)
 
@@ -538,4 +542,21 @@ func (b *BotHelper) handleDebugCommand(bot *gotgbot.Bot, ctx *ext.Context) error
 	b.mb.wh.debounced(b.mb.wh.processAPI)
 
 	return nil
+}
+
+func (b *BotHelper) handleReloadCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+	if ctx.EffectiveChat.Type != "supergroup" {
+		return nil
+	}
+	if !ctx.EffectiveSender.IsUser() {
+		return nil
+	}
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
+		return nil
+	}
+
+	var err error
+	b.mb.config, err = parseConfig()
+
+	return err
 }

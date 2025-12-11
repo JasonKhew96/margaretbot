@@ -16,8 +16,9 @@ type Message struct {
 }
 
 type MultiMessage struct {
-	First *Message
-	Last  []Message
+	IgnoreThreadId bool
+	First          *Message
+	Last           []Message
 }
 
 func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
@@ -27,11 +28,14 @@ func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
 	fallback := func() {
 		b.limiter.Wait(b.ctx)
 		first := multiMsg.First
-		msg, err := b.mb.bot.bot.SendMessage(chatId, first.text, &gotgbot.SendMessageOpts{
-			MessageThreadId:    first.messageThreadId,
+		opts := gotgbot.SendMessageOpts{
 			Entities:           first.entities,
 			LinkPreviewOptions: first.linkPreviewOptions,
-		})
+		}
+		if !multiMsg.IgnoreThreadId {
+			opts.MessageThreadId = first.messageThreadId
+		}
+		msg, err := b.mb.bot.bot.SendMessage(chatId, first.text, &opts)
 		if err != nil {
 			log.Printf("failed to send message: %+v\n%+v", first, err)
 		}
@@ -41,14 +45,17 @@ func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
 		}
 		for _, m := range multiMsg.Last {
 			b.limiter.Wait(b.ctx)
-			if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &gotgbot.SendMessageOpts{
-				MessageThreadId:    m.messageThreadId,
+			opts = gotgbot.SendMessageOpts{
 				Entities:           m.entities,
 				LinkPreviewOptions: m.linkPreviewOptions,
 				ReplyParameters: &gotgbot.ReplyParameters{
 					MessageId: msg.MessageId,
 				},
-			}); err != nil {
+			}
+			if !multiMsg.IgnoreThreadId {
+				opts.MessageThreadId = first.messageThreadId
+			}
+			if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &opts); err != nil {
 				log.Printf("failed to send message: %+v\n%+v", last, err)
 			}
 		}
@@ -66,11 +73,14 @@ func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
 		inputFile = gotgbot.InputFileByURL(first.imageUrl)
 	}
 
-	msg, err := b.mb.bot.bot.SendPhoto(chatId, inputFile, &gotgbot.SendPhotoOpts{
-		MessageThreadId: first.messageThreadId,
+	photoOpts := gotgbot.SendPhotoOpts{
 		Caption:         first.text,
 		CaptionEntities: first.entities,
-	})
+	}
+	if !multiMsg.IgnoreThreadId {
+		photoOpts.MessageThreadId = first.messageThreadId
+	}
+	msg, err := b.mb.bot.bot.SendPhoto(chatId, inputFile, &photoOpts)
 	if err != nil {
 		log.Printf("failed to send message: %+v\n%+v", first, err)
 		fallback()
@@ -82,14 +92,18 @@ func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
 	}
 	for _, m := range last {
 		b.limiter.Wait(b.ctx)
-		if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &gotgbot.SendMessageOpts{
+		opts := gotgbot.SendMessageOpts{
 			MessageThreadId:    m.messageThreadId,
 			Entities:           m.entities,
 			LinkPreviewOptions: m.linkPreviewOptions,
 			ReplyParameters: &gotgbot.ReplyParameters{
 				MessageId: msg.MessageId,
 			},
-		}); err != nil {
+		}
+		if !multiMsg.IgnoreThreadId {
+			opts.MessageThreadId = first.messageThreadId
+		}
+		if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &opts); err != nil {
 			log.Printf("failed to send message: %+v\n%+v", last, err)
 		}
 	}

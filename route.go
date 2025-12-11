@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -61,6 +62,7 @@ func (s *WebhookHandler) processAPI() {
 			break
 		}
 	}
+
 	videoList, err := s.mb.yt.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
 	if err != nil {
 		log.Printf("failed to get video list: %v", err)
@@ -157,6 +159,20 @@ func (s *WebhookHandler) processAPI() {
 
 		// duration
 
+		isForward := false
+		if s.mb.config.ForwardChatId != 0 {
+			if !slices.Contains(s.mb.config.NoForwardChannelIds, video.Snippet.ChannelId) {
+				re, err := regexp.Compile(s.mb.config.ForwardRegex)
+				if err == nil {
+					if re.MatchString(videoTitle) {
+						isForward = true
+					}
+				} else {
+					log.Printf("failed to compile regex: %v", err)
+				}
+			}
+		}
+
 		c := &Caption{
 			VideoTitle:         videoTitle,
 			VideoUrl:           videoUrl,
@@ -186,8 +202,13 @@ func (s *WebhookHandler) processAPI() {
 			if thumbnailUrl != "" {
 				msg.imageUrl = thumbnailUrl
 			}
-			s.mb.bot.msgChannel <- MultiMessage{
+			mm := MultiMessage{
 				First: &msg,
+			}
+			s.mb.bot.msgChannel <- mm
+			if isForward {
+				mm.IgnoreThreadId = true
+				s.mb.bot.msgForward <- mm
 			}
 			return
 		}
@@ -209,7 +230,7 @@ func (s *WebhookHandler) processAPI() {
 			if thumbnailUrl != "" {
 				msg.imageUrl = thumbnailUrl
 			}
-			s.mb.bot.msgChannel <- MultiMessage{
+			mm := MultiMessage{
 				First: &msg,
 				Last: []Message{
 					{
@@ -227,6 +248,11 @@ func (s *WebhookHandler) processAPI() {
 						},
 					},
 				},
+			}
+			s.mb.bot.msgChannel <- mm
+			if isForward {
+				mm.IgnoreThreadId = true
+				s.mb.bot.msgForward <- mm
 			}
 			return
 		}
@@ -253,7 +279,7 @@ func (s *WebhookHandler) processAPI() {
 				AllowedRegion: allowedRegion,
 				BlockedRegion: blockedRegion,
 			})
-			s.mb.bot.msgChannel <- MultiMessage{
+			mm := MultiMessage{
 				First: &msg,
 				Last: []Message{
 					{
@@ -279,6 +305,11 @@ func (s *WebhookHandler) processAPI() {
 						},
 					},
 				},
+			}
+			s.mb.bot.msgChannel <- mm
+			if isForward {
+				mm.IgnoreThreadId = true
+				s.mb.bot.msgForward <- mm
 			}
 		}
 	}
