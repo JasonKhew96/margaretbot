@@ -27,8 +27,6 @@ type BotHelper struct {
 	msgChannel chan MultiMessage
 	msgForward chan MultiMessage
 
-	limiter *rate.Limiter
-
 	ctx context.Context
 }
 
@@ -58,14 +56,14 @@ func NewBot(mb *MargaretBot) error {
 		return err
 	}
 
-	limiter := rate.NewLimiter(rate.Every(time.Minute/20), 1)
+	limiterChannel := rate.NewLimiter(rate.Every(time.Minute/20), 1)
+	limiterForward := rate.NewLimiter(rate.Every(time.Minute/20), 1)
 
 	b := &BotHelper{
 		mb:         mb,
 		bot:        bot,
 		msgChannel: make(chan MultiMessage),
 		msgForward: make(chan MultiMessage),
-		limiter:    limiter,
 		ctx:        context.Background(),
 	}
 	mb.bot = b
@@ -101,8 +99,8 @@ func NewBot(mb *MargaretBot) error {
 		return err
 	}
 
-	go b.telegramWorker(mb.config.ChatId, b.msgChannel)
-	go b.telegramWorker(mb.config.ForwardChatId, b.msgForward)
+	go b.telegramWorker(mb.config.ChatId, limiterChannel, b.msgChannel)
+	go b.telegramWorker(mb.config.ForwardChatId, limiterForward, b.msgForward)
 
 	log.Printf("Bot %s started", bot.Username)
 

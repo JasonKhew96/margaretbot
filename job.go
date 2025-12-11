@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
+	"golang.org/x/time/rate"
 )
 
 type Message struct {
@@ -21,12 +22,12 @@ type MultiMessage struct {
 	Last           []Message
 }
 
-func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
+func (b *BotHelper) work(chatId int64, limiter *rate.Limiter, multiMsg MultiMessage) {
 	if multiMsg.First == nil {
 		return
 	}
 	fallback := func() {
-		b.limiter.Wait(b.ctx)
+		limiter.Wait(b.ctx)
 		first := multiMsg.First
 		opts := gotgbot.SendMessageOpts{
 			Entities:           first.entities,
@@ -44,7 +45,7 @@ func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
 			return
 		}
 		for _, m := range multiMsg.Last {
-			b.limiter.Wait(b.ctx)
+			limiter.Wait(b.ctx)
 			opts = gotgbot.SendMessageOpts{
 				Entities:           m.entities,
 				LinkPreviewOptions: m.linkPreviewOptions,
@@ -65,7 +66,7 @@ func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
 		return
 	}
 
-	b.limiter.Wait(b.ctx)
+	limiter.Wait(b.ctx)
 	first := multiMsg.First
 
 	inputFile, err := downloadToBuffer(first.imageUrl)
@@ -91,7 +92,7 @@ func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
 		return
 	}
 	for _, m := range last {
-		b.limiter.Wait(b.ctx)
+		limiter.Wait(b.ctx)
 		opts := gotgbot.SendMessageOpts{
 			MessageThreadId:    m.messageThreadId,
 			Entities:           m.entities,
@@ -109,8 +110,8 @@ func (b *BotHelper) work(chatId int64, multiMsg MultiMessage) {
 	}
 }
 
-func (b *BotHelper) telegramWorker(chatId int64, multiMsgs <-chan MultiMessage) {
+func (b *BotHelper) telegramWorker(chatId int64, limiter *rate.Limiter, multiMsgs <-chan MultiMessage) {
 	for multiMsg := range multiMsgs {
-		b.work(chatId, multiMsg)
+		b.work(chatId, limiter, multiMsg)
 	}
 }
