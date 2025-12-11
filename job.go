@@ -54,7 +54,7 @@ func (b *BotHelper) work(chatId int64, limiter *rate.Limiter, multiMsg MultiMess
 				},
 			}
 			if !multiMsg.IgnoreThreadId {
-				opts.MessageThreadId = first.messageThreadId
+				opts.MessageThreadId = m.messageThreadId
 			}
 			if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &opts); err != nil {
 				log.Printf("failed to send message: %+v\n%+v", last, err)
@@ -94,7 +94,6 @@ func (b *BotHelper) work(chatId int64, limiter *rate.Limiter, multiMsg MultiMess
 	for _, m := range last {
 		limiter.Wait(b.ctx)
 		opts := gotgbot.SendMessageOpts{
-			MessageThreadId:    m.messageThreadId,
 			Entities:           m.entities,
 			LinkPreviewOptions: m.linkPreviewOptions,
 			ReplyParameters: &gotgbot.ReplyParameters{
@@ -102,7 +101,7 @@ func (b *BotHelper) work(chatId int64, limiter *rate.Limiter, multiMsg MultiMess
 			},
 		}
 		if !multiMsg.IgnoreThreadId {
-			opts.MessageThreadId = first.messageThreadId
+			opts.MessageThreadId = m.messageThreadId
 		}
 		if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &opts); err != nil {
 			log.Printf("failed to send message: %+v\n%+v", last, err)
