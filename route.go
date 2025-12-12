@@ -107,6 +107,7 @@ func (s *WebhookHandler) processAPI() {
 		var blockedRegion string
 		if video.ContentDetails.RegionRestriction != nil {
 			if len(video.ContentDetails.RegionRestriction.Blocked) >= 249 {
+				log.Printf("%s is globally restricted: %s", video.Id, video.Snippet.Title)
 				continue
 			}
 
@@ -130,7 +131,7 @@ func (s *WebhookHandler) processAPI() {
 				log.Printf("failed to parse scheduled start time: %v", err)
 			}
 			if time.Since(parsedTime) > 10*time.Minute {
-				log.Printf("%s scheduledStartTime is in the past: %s", video.Id, scheduledStartTime)
+				log.Printf("%s scheduledStartTime is in the past %s: %s", video.Id, scheduledStartTime, video.Snippet.Title)
 				continue
 			}
 		} else if publishedTime != "" {
@@ -138,7 +139,7 @@ func (s *WebhookHandler) processAPI() {
 			if err != nil {
 				log.Printf("failed to parse scheduled start time: %v", err)
 			} else if time.Since(parsedTime) > 10*time.Minute {
-				log.Printf("%s publishedTime is in the past: %s", video.Id, publishedTime)
+				log.Printf("%s publishedTime is in the past %s: %s", video.Id, publishedTime, video.Snippet.Title)
 				continue
 			}
 		}
@@ -164,10 +165,14 @@ func (s *WebhookHandler) processAPI() {
 				if err == nil {
 					if re.MatchString(videoTitle) {
 						isForward = true
+					} else {
+						log.Printf("%s does not match forward regex: %s", video.Id, video.Snippet.Title)
 					}
 				} else {
 					log.Printf("failed to compile regex: %v", err)
 				}
+			} else {
+				log.Printf("%s %s is from no forward channel: %s", video.Snippet.ChannelId, video.Id, video.Snippet.Title)
 			}
 		}
 
@@ -517,17 +522,17 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		videoTitle := feed.Entry.Title
+		videoUrl := feed.Entry.Link.Href
+
 		isShort, err := s.mb.yt.IsShort(videoId)
 		if err != nil {
 			log.Printf("failed to check if video is short: %v", err)
 		}
 		if isShort {
-			log.Printf("video is a short: %s", videoId)
+			log.Printf("video is a short %s: %s", videoId, videoTitle)
 			return
 		}
-
-		videoTitle := feed.Entry.Title
-		videoUrl := feed.Entry.Link.Href
 
 		if channel.RegexBan.Valid && channel.RegexBan.String != "" {
 			re, err := regexp.Compile(channel.RegexBan.String)
@@ -536,7 +541,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if re.MatchString(videoTitle) {
-				log.Printf("feed title matches regex: %s", videoTitle)
+				log.Printf("feed title matches regex %s: %s", videoId, videoTitle)
 				return
 			}
 		}
@@ -548,14 +553,14 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if !re.MatchString(videoTitle) {
-				log.Printf("feed title does not match regex: %s", videoTitle)
+				log.Printf("feed title does not match regex %s: %s", videoId, videoTitle)
 				return
 			}
 		}
 
 		// thumbnailUrl := fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId)
 
-		log.Println("new video:", videoId, videoTitle)
+		log.Printf("new video %s: %s", videoId, videoTitle)
 
 		s.queue[videoId] = Queue{
 			threadId:      threadIdInt,
