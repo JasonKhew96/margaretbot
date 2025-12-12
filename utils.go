@@ -119,6 +119,7 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 				Type: "code",
 			})
 		}
+		quotedText.AddText("\n")
 	}
 	if len(caption.AllowedRegion) > 0 {
 		quotedText.AddText("允许地区: ")
