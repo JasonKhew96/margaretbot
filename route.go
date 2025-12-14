@@ -130,16 +130,16 @@ func (s *WebhookHandler) processAPI() {
 			if err != nil {
 				log.Printf("failed to parse scheduled start time: %v", err)
 			}
-			if time.Since(parsedTime) > 10*time.Minute {
-				log.Printf("%s scheduledStartTime is in the past %s: %s", video.Id, scheduledStartTime, video.Snippet.Title)
+			if time.Since(parsedTime) > 24*time.Hour*3 {
+				log.Printf("%s scheduledStartTime is in the past 3 days %s: %s", video.Id, scheduledStartTime, video.Snippet.Title)
 				continue
 			}
 		} else if publishedTime != "" {
 			parsedTime, err := time.Parse("2006-01-02T15:04:05Z", publishedTime)
 			if err != nil {
 				log.Printf("failed to parse scheduled start time: %v", err)
-			} else if time.Since(parsedTime) > 10*time.Minute {
-				log.Printf("%s publishedTime is in the past %s: %s", video.Id, publishedTime, video.Snippet.Title)
+			} else if time.Since(parsedTime) > 24*time.Hour*3 {
+				log.Printf("%s publishedTime is in the past 3 days %s: %s", video.Id, publishedTime, video.Snippet.Title)
 				continue
 			}
 		}
