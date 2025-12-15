@@ -92,7 +92,7 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 			})
 		}
 		quotedText.AddText("\n")
-	} else {
+	} else if len(caption.PublishedTime) > 0 {
 		quotedText.AddText("发布时间: ")
 		parsedTime, err := time.Parse("2006-01-02T15:04:05Z", caption.PublishedTime)
 		if err != nil {
