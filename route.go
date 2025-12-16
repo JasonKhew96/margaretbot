@@ -512,17 +512,19 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		isCached, err := s.mb.db.IsCached(videoId)
-		if err != nil {
-			log.Printf("get isCached failed: %v", err)
+		cache, err := s.mb.db.GetCache(videoId)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			log.Printf("get cache failed: %v", err)
 			return
 		}
-		if isCached {
+		if cache != nil && cache.IsPublished {
 			return
 		}
-		if err := s.mb.db.UpsertCache(videoId, false); err != nil {
-			log.Printf("unable to insert cache: %v", err)
-			return
+		if cache == nil {
+			if err := s.mb.db.UpsertCache(videoId, false); err != nil {
+				log.Printf("unable to insert cache: %v", err)
+				return
+			}
 		}
 
 		videoTitle := feed.Entry.Title

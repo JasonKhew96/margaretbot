@@ -121,9 +121,8 @@ func (d *DbHelper) UpsertCache(videoId string, isPublished bool) error {
 	return c.Upsert(d.ctx, d.db, false, []string{"video_id"}, boil.Whitelist("is_published"), boil.Whitelist("video_id", "is_published"))
 }
 
-func (d *DbHelper) IsCached(videoId string) (bool, error) {
-	count, err := models.Caches(models.CacheWhere.VideoID.EQ(videoId), models.CacheWhere.IsPublished.EQ(true)).Count(d.ctx, d.db)
-	return count > 0, err
+func (d *DbHelper) GetCache(videoId string) (*models.Cache, error) {
+	return models.Caches(models.CacheWhere.VideoID.EQ(videoId), models.CacheWhere.IsPublished.EQ(true)).One(d.ctx, d.db)
 }
 
 func (d *DbHelper) DeleteCache() error {
