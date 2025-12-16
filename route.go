@@ -135,9 +135,12 @@ func (s *WebhookHandler) processAPI() {
 				continue
 			}
 		} else if publishedTime != "" {
+			if err := s.mb.db.UpsertCache(videoId, true); err != nil {
+				log.Printf("failed to update cache: %v", err)
+			}
 			parsedTime, err := time.Parse("2006-01-02T15:04:05Z", publishedTime)
 			if err != nil {
-				log.Printf("failed to parse scheduled start time: %v", err)
+				log.Printf("failed to parse published time: %v", err)
 			} else if time.Since(parsedTime) > 24*time.Hour*3 {
 				log.Printf("%s publishedTime is in the past 3 days %s: %s", video.Id, publishedTime, video.Snippet.Title)
 				continue
@@ -517,7 +520,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		if isCached {
 			return
 		}
-		if err := s.mb.db.UpsertCache(videoId); err != nil {
+		if err := s.mb.db.UpsertCache(videoId, false); err != nil {
 			log.Printf("unable to insert cache: %v", err)
 			return
 		}

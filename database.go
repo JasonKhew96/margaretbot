@@ -28,6 +28,7 @@ CREATE INDEX IF NOT EXISTS subscription_channel_id_idx ON subscription (channel_
 
 CREATE TABLE IF NOT EXISTS cache (
     video_id TEXT PRIMARY KEY NOT NULL,
+	is_published BOOLEAN DEFAULT FALSE NOT NULL,
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -112,15 +113,16 @@ func (d *DbHelper) GetSubscriptions() (models.SubscriptionSlice, error) {
 	return models.Subscriptions().All(d.ctx, d.db)
 }
 
-func (d *DbHelper) UpsertCache(videoId string) error {
+func (d *DbHelper) UpsertCache(videoId string, isPublished bool) error {
 	c := models.Cache{
-		VideoID: videoId,
+		VideoID:     videoId,
+		IsPublished: isPublished,
 	}
 	return c.Upsert(d.ctx, d.db, false, []string{"video_id"}, boil.Infer(), boil.Infer())
 }
 
 func (d *DbHelper) IsCached(videoId string) (bool, error) {
-	count, err := models.Caches(models.CacheWhere.VideoID.EQ(videoId)).Count(d.ctx, d.db)
+	count, err := models.Caches(models.CacheWhere.VideoID.EQ(videoId), models.CacheWhere.IsPublished.EQ(true)).Count(d.ctx, d.db)
 	return count > 0, err
 }
 

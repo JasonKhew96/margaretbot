@@ -23,32 +23,37 @@ import (
 
 // Cache is an object representing the database table.
 type Cache struct {
-	VideoID   string    `boil:"video_id" json:"video_id" toml:"video_id" yaml:"video_id"`
-	CreatedAt time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
-	UpdatedAt time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	VideoID     string    `boil:"video_id" json:"video_id" toml:"video_id" yaml:"video_id"`
+	CreatedAt   time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
+	UpdatedAt   time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
+	IsPublished bool      `boil:"is_published" json:"is_published" toml:"is_published" yaml:"is_published"`
 
 	R *cacheR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L cacheL  `boil:"-" json:"-" toml:"-" yaml:"-"`
 }
 
 var CacheColumns = struct {
-	VideoID   string
-	CreatedAt string
-	UpdatedAt string
+	VideoID     string
+	CreatedAt   string
+	UpdatedAt   string
+	IsPublished string
 }{
-	VideoID:   "video_id",
-	CreatedAt: "created_at",
-	UpdatedAt: "updated_at",
+	VideoID:     "video_id",
+	CreatedAt:   "created_at",
+	UpdatedAt:   "updated_at",
+	IsPublished: "is_published",
 }
 
 var CacheTableColumns = struct {
-	VideoID   string
-	CreatedAt string
-	UpdatedAt string
+	VideoID     string
+	CreatedAt   string
+	UpdatedAt   string
+	IsPublished string
 }{
-	VideoID:   "cache.video_id",
-	CreatedAt: "cache.created_at",
-	UpdatedAt: "cache.updated_at",
+	VideoID:     "cache.video_id",
+	CreatedAt:   "cache.created_at",
+	UpdatedAt:   "cache.updated_at",
+	IsPublished: "cache.is_published",
 }
 
 // Generated where
@@ -99,14 +104,25 @@ func (w whereHelpertime_Time) GTE(x time.Time) qm.QueryMod {
 	return qmhelper.Where(w.field, qmhelper.GTE, x)
 }
 
+type whereHelperbool struct{ field string }
+
+func (w whereHelperbool) EQ(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.EQ, x) }
+func (w whereHelperbool) NEQ(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.NEQ, x) }
+func (w whereHelperbool) LT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.LT, x) }
+func (w whereHelperbool) LTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.LTE, x) }
+func (w whereHelperbool) GT(x bool) qm.QueryMod  { return qmhelper.Where(w.field, qmhelper.GT, x) }
+func (w whereHelperbool) GTE(x bool) qm.QueryMod { return qmhelper.Where(w.field, qmhelper.GTE, x) }
+
 var CacheWhere = struct {
-	VideoID   whereHelperstring
-	CreatedAt whereHelpertime_Time
-	UpdatedAt whereHelpertime_Time
+	VideoID     whereHelperstring
+	CreatedAt   whereHelpertime_Time
+	UpdatedAt   whereHelpertime_Time
+	IsPublished whereHelperbool
 }{
-	VideoID:   whereHelperstring{field: "\"cache\".\"video_id\""},
-	CreatedAt: whereHelpertime_Time{field: "\"cache\".\"created_at\""},
-	UpdatedAt: whereHelpertime_Time{field: "\"cache\".\"updated_at\""},
+	VideoID:     whereHelperstring{field: "\"cache\".\"video_id\""},
+	CreatedAt:   whereHelpertime_Time{field: "\"cache\".\"created_at\""},
+	UpdatedAt:   whereHelpertime_Time{field: "\"cache\".\"updated_at\""},
+	IsPublished: whereHelperbool{field: "\"cache\".\"is_published\""},
 }
 
 // CacheRels is where relationship names are stored.
@@ -126,9 +142,9 @@ func (*cacheR) NewStruct() *cacheR {
 type cacheL struct{}
 
 var (
-	cacheAllColumns            = []string{"video_id", "created_at", "updated_at"}
+	cacheAllColumns            = []string{"video_id", "created_at", "updated_at", "is_published"}
 	cacheColumnsWithoutDefault = []string{"video_id"}
-	cacheColumnsWithDefault    = []string{"created_at", "updated_at"}
+	cacheColumnsWithDefault    = []string{"created_at", "updated_at", "is_published"}
 	cachePrimaryKeyColumns     = []string{"video_id"}
 	cacheGeneratedColumns      = []string{}
 )
