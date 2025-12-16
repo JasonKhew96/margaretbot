@@ -118,7 +118,7 @@ func (d *DbHelper) UpsertCache(videoId string, isPublished bool) error {
 		VideoID:     videoId,
 		IsPublished: isPublished,
 	}
-	return c.Upsert(d.ctx, d.db, false, []string{"video_id"}, boil.Infer(), boil.Infer())
+	return c.Upsert(d.ctx, d.db, false, []string{"video_id"}, boil.Whitelist("is_published"), boil.Whitelist("video_id", "is_published"))
 }
 
 func (d *DbHelper) IsCached(videoId string) (bool, error) {
