@@ -176,7 +176,7 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		}
 		videoIdList = append(videoIdList, videoId)
 
-		if err := b.mb.db.UpsertCache(videoId, true); err != nil {
+		if err := b.mb.db.UpsertCache(videoId, true, true); err != nil {
 			log.Printf("unable to insert cache: %v", err)
 			continue
 		}

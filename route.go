@@ -125,7 +125,13 @@ func (s *WebhookHandler) processAPI() {
 		channelName := video.Snippet.ChannelTitle
 		publishedTime := video.Snippet.PublishedAt
 
+		cache, _ := s.mb.db.GetCache(videoId)
+
 		if scheduledStartTime != "" {
+			if cache != nil && cache.IsScheduled {
+				log.Printf("skip scheduled %s: %s", videoId, videoTitle)
+				continue
+			}
 			if err := s.mb.db.UpsertCache(videoId, true, false); err != nil {
 				log.Printf("failed to update cache: %v", err)
 			}
@@ -138,6 +144,10 @@ func (s *WebhookHandler) processAPI() {
 				continue
 			}
 		} else if publishedTime != "" {
+			if cache != nil && cache.IsPublished {
+				log.Printf("skip published %s: %s", videoId, videoTitle)
+				continue
+			}
 			if err := s.mb.db.UpsertCache(videoId, true, true); err != nil {
 				log.Printf("failed to update cache: %v", err)
 			}
