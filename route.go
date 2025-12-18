@@ -512,12 +512,16 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		videoTitle := feed.Entry.Title
+		videoUrl := feed.Entry.Link.Href
+
 		cache, err := s.mb.db.GetCache(videoId)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			log.Printf("get cache failed: %v", err)
 			return
 		}
 		if cache != nil && cache.IsPublished {
+			log.Printf("already published %s: %s", videoId, videoTitle)
 			return
 		}
 		if cache == nil {
@@ -526,9 +530,6 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-
-		videoTitle := feed.Entry.Title
-		videoUrl := feed.Entry.Link.Href
 
 		isShort, err := s.mb.yt.IsShort(videoId)
 		if err != nil {
