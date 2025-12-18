@@ -568,7 +568,7 @@ func testCachesSelect(t *testing.T) {
 }
 
 var (
-	cacheDBTypes = map[string]string{`VideoID`: `TEXT`, `CreatedAt`: `TIMESTAMP`, `UpdatedAt`: `TIMESTAMP`, `IsPublished`: `BOOLEAN`}
+	cacheDBTypes = map[string]string{`VideoID`: `TEXT`, `CreatedAt`: `TIMESTAMP`, `UpdatedAt`: `TIMESTAMP`, `IsPublished`: `BOOLEAN`, `IsScheduled`: `BOOLEAN`}
 	_            = bytes.MinRead
 )
 

@@ -126,6 +126,9 @@ func (s *WebhookHandler) processAPI() {
 		publishedTime := video.Snippet.PublishedAt
 
 		if scheduledStartTime != "" {
+			if err := s.mb.db.UpsertCache(videoId, true, false); err != nil {
+				log.Printf("failed to update cache: %v", err)
+			}
 			parsedTime, err := time.Parse("2006-01-02T15:04:05Z", scheduledStartTime)
 			if err != nil {
 				log.Printf("failed to parse scheduled start time: %v", err)
@@ -135,7 +138,7 @@ func (s *WebhookHandler) processAPI() {
 				continue
 			}
 		} else if publishedTime != "" {
-			if err := s.mb.db.UpsertCache(videoId, true); err != nil {
+			if err := s.mb.db.UpsertCache(videoId, true, true); err != nil {
 				log.Printf("failed to update cache: %v", err)
 			}
 			parsedTime, err := time.Parse("2006-01-02T15:04:05Z", publishedTime)
@@ -520,12 +523,12 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			log.Printf("get cache failed: %v", err)
 			return
 		}
-		if cache != nil && cache.IsPublished {
-			log.Printf("already published %s: %s", videoId, videoTitle)
+		if cache != nil && cache.IsScheduled && cache.IsPublished {
+			log.Printf("already scheduled/published %s: %s", videoId, videoTitle)
 			return
 		}
 		if cache == nil {
-			if err := s.mb.db.UpsertCache(videoId, false); err != nil {
+			if err := s.mb.db.UpsertCache(videoId, false, false); err != nil {
 				log.Printf("unable to insert cache: %v", err)
 				return
 			}

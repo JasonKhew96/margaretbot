@@ -27,6 +27,7 @@ type Cache struct {
 	CreatedAt   time.Time `boil:"created_at" json:"created_at" toml:"created_at" yaml:"created_at"`
 	UpdatedAt   time.Time `boil:"updated_at" json:"updated_at" toml:"updated_at" yaml:"updated_at"`
 	IsPublished bool      `boil:"is_published" json:"is_published" toml:"is_published" yaml:"is_published"`
+	IsScheduled bool      `boil:"is_scheduled" json:"is_scheduled" toml:"is_scheduled" yaml:"is_scheduled"`
 
 	R *cacheR `boil:"-" json:"-" toml:"-" yaml:"-"`
 	L cacheL  `boil:"-" json:"-" toml:"-" yaml:"-"`
@@ -37,11 +38,13 @@ var CacheColumns = struct {
 	CreatedAt   string
 	UpdatedAt   string
 	IsPublished string
+	IsScheduled string
 }{
 	VideoID:     "video_id",
 	CreatedAt:   "created_at",
 	UpdatedAt:   "updated_at",
 	IsPublished: "is_published",
+	IsScheduled: "is_scheduled",
 }
 
 var CacheTableColumns = struct {
@@ -49,11 +52,13 @@ var CacheTableColumns = struct {
 	CreatedAt   string
 	UpdatedAt   string
 	IsPublished string
+	IsScheduled string
 }{
 	VideoID:     "cache.video_id",
 	CreatedAt:   "cache.created_at",
 	UpdatedAt:   "cache.updated_at",
 	IsPublished: "cache.is_published",
+	IsScheduled: "cache.is_scheduled",
 }
 
 // Generated where
@@ -118,11 +123,13 @@ var CacheWhere = struct {
 	CreatedAt   whereHelpertime_Time
 	UpdatedAt   whereHelpertime_Time
 	IsPublished whereHelperbool
+	IsScheduled whereHelperbool
 }{
 	VideoID:     whereHelperstring{field: "\"cache\".\"video_id\""},
 	CreatedAt:   whereHelpertime_Time{field: "\"cache\".\"created_at\""},
 	UpdatedAt:   whereHelpertime_Time{field: "\"cache\".\"updated_at\""},
 	IsPublished: whereHelperbool{field: "\"cache\".\"is_published\""},
+	IsScheduled: whereHelperbool{field: "\"cache\".\"is_scheduled\""},
 }
 
 // CacheRels is where relationship names are stored.
@@ -142,9 +149,9 @@ func (*cacheR) NewStruct() *cacheR {
 type cacheL struct{}
 
 var (
-	cacheAllColumns            = []string{"video_id", "created_at", "updated_at", "is_published"}
+	cacheAllColumns            = []string{"video_id", "created_at", "updated_at", "is_published", "is_scheduled"}
 	cacheColumnsWithoutDefault = []string{"video_id"}
-	cacheColumnsWithDefault    = []string{"created_at", "updated_at", "is_published"}
+	cacheColumnsWithDefault    = []string{"created_at", "updated_at", "is_published", "is_scheduled"}
 	cachePrimaryKeyColumns     = []string{"video_id"}
 	cacheGeneratedColumns      = []string{}
 )
