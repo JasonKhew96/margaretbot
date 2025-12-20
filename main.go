@@ -71,29 +71,31 @@ func main() {
 func loop(margaret *MargaretBot) {
 	if err := margaret.db.DeleteCache(); err != nil {
 		fmt.Printf("failed to delete cache: %v\n", err)
-		time.Sleep(5 * time.Minute)
+		time.AfterFunc(5*time.Minute, func() {
+			loop(margaret)
+		})
 		return
 	}
 
-	subs, err := margaret.db.GetSubscriptions()
+	subs, err := margaret.db.GetExpiringSubscriptions()
 	if err != nil {
 		fmt.Printf("failed to get subscriptions: %v\n", err)
-		time.Sleep(5 * time.Minute)
+		time.AfterFunc(5*time.Minute, func() {
+			loop(margaret)
+		})
 		return
 	}
 
 	for _, sub := range subs {
-		if time.Now().Add(24 * time.Hour).After(sub.ExpiredAt) {
-			log.Println("renewing subscription for channel", sub.ChannelID)
-			time.Sleep(5 * time.Second)
-			newSecret := sha256.Sum256([]byte(margaret.config.Secret))
-			callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", margaret.config.ServerDomain, fmt.Sprintf("%x", newSecret), sub.ThreadID.Int64, sub.ChannelID)
-			topicUrl := fmt.Sprintf("https://www.youtube.com/xml/feeds/videos.xml?channel_id=%s", sub.ChannelID)
+		log.Println("renewing subscription for channel", sub.ChannelID)
+		time.Sleep(5 * time.Second)
+		newSecret := sha256.Sum256([]byte(margaret.config.Secret))
+		callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", margaret.config.ServerDomain, fmt.Sprintf("%x", newSecret), sub.ThreadID.Int64, sub.ChannelID)
+		topicUrl := fmt.Sprintf("https://www.youtube.com/xml/feeds/videos.xml?channel_id=%s", sub.ChannelID)
 
-			if err := margaret.ws.Subscribe(websub.ModeSubscribe, callbackUrl, topicUrl, nil); err != nil {
-				fmt.Printf("failed to renew subscription: %v\n", err)
-				continue
-			}
+		if err := margaret.ws.Subscribe(websub.ModeSubscribe, callbackUrl, topicUrl, nil); err != nil {
+			fmt.Printf("failed to renew subscription: %v\n", err)
+			continue
 		}
 	}
 
