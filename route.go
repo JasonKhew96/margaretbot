@@ -424,6 +424,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		log.Println("renewed subscription for channel", channelId)
 		err = s.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
 			ExpiredAt: expiredAt,
 			ThreadID:  threadIdInt,
