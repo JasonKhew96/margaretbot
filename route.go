@@ -398,6 +398,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			log.Printf("failed to parse lease_seconds: %v", err)
 			return
 		}
+		expiredAt := time.Now().Add(time.Duration(leaseSecondsInt) * time.Second)
 
 		_, err = s.mb.db.GetSubscription(channelId)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -408,7 +409,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 		if errors.Is(err, sql.ErrNoRows) {
 			if err := s.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
-				ExpiredAt: time.Now().Add(10 * 24 * 60 * time.Minute),
+				ExpiredAt: expiredAt,
 				ThreadID:  threadIdInt,
 			}); err != nil {
 				http.Error(w, "failed to upsert subscription", http.StatusInternalServerError)
@@ -423,7 +424,6 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		expiredAt := time.Now().Add(time.Duration(leaseSecondsInt) * time.Second)
 		err = s.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
 			ExpiredAt: expiredAt,
 			ThreadID:  threadIdInt,
