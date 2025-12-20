@@ -85,7 +85,6 @@ func (s *WebhookHandler) processAPI() {
 				},
 			}
 		}
-
 		return
 	}
 	for _, video := range videoList.Items {
@@ -230,7 +229,7 @@ func (s *WebhookHandler) processAPI() {
 				mm.IgnoreThreadId = true
 				s.mb.bot.msgForward <- mm
 			}
-			return
+			continue
 		}
 
 		c.VideoDescription = ""
@@ -274,7 +273,7 @@ func (s *WebhookHandler) processAPI() {
 				mm.IgnoreThreadId = true
 				s.mb.bot.msgForward <- mm
 			}
-			return
+			continue
 		}
 
 		c.AllowedRegion = ""
