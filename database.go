@@ -120,7 +120,7 @@ func (d *DbHelper) UpsertCache(videoId string, isScheduled, isPublished bool) er
 		IsScheduled: isScheduled,
 		IsPublished: isPublished,
 	}
-	return c.Upsert(d.ctx, d.db, false, []string{"video_id"}, boil.Whitelist("is_published"), boil.Whitelist("video_id", "is_scheduled", "is_published"))
+	return c.Upsert(d.ctx, d.db, false, []string{"video_id"}, boil.Whitelist("is_scheduled", "is_published"), boil.Infer())
 }
 
 func (d *DbHelper) GetCache(videoId string) (*models.Cache, error) {
