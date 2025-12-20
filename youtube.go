@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/oauth2"
@@ -83,7 +84,10 @@ func NewYoutubeHelper() (*YoutubeHelper, error) {
 	return &YoutubeHelper{client: client, checkIsShortsClient: checkShortsClient, service: service}, nil
 }
 
-func (h *YoutubeHelper) IsShort(videoId string) (bool, error) {
+func (h *YoutubeHelper) IsShort(videoId, title string) (bool, error) {
+	if strings.Contains(title, "#shorts") {
+		return true, nil
+	}
 	req, err := http.NewRequest(http.MethodHead, fmt.Sprintf("https://www.youtube.com/shorts/%s", videoId), nil)
 	if err != nil {
 		return false, err
