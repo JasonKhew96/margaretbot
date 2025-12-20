@@ -128,7 +128,7 @@ func (d *DbHelper) UpsertCache(videoId string, isScheduled, isPublished bool) er
 }
 
 func (d *DbHelper) GetCache(videoId string) (*models.Cache, error) {
-	return models.Caches(models.CacheWhere.VideoID.EQ(videoId), models.CacheWhere.IsPublished.EQ(true)).One(d.ctx, d.db)
+	return models.Caches(models.CacheWhere.VideoID.EQ(videoId)).One(d.ctx, d.db)
 }
 
 func (d *DbHelper) DeleteCache() error {
