@@ -25,7 +25,7 @@ func Test_youtube_IsShort(t *testing.T) {
 		t.Error(err)
 	}
 
-	isShort, err := h.IsShort("5aqhv8qZAJA")
+	isShort, err := h.IsShort("5aqhv8qZAJA", "#shorts")
 	if err != nil {
 		t.Error(err)
 	}
