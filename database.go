@@ -115,7 +115,7 @@ func (d *DbHelper) GetSubscriptions() (models.SubscriptionSlice, error) {
 }
 
 func (d *DbHelper) GetExpiringSubscriptions() (models.SubscriptionSlice, error) {
-	return models.Subscriptions(models.SubscriptionWhere.ExpiredAt.GT(time.Now().Add(24*time.Hour))).All(d.ctx, d.db)
+	return models.Subscriptions(models.SubscriptionWhere.ExpiredAt.GT(time.Now())).All(d.ctx, d.db)
 }
 
 func (d *DbHelper) UpsertCache(videoId string, isScheduled, isPublished bool) error {
