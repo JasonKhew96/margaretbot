@@ -544,7 +544,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		isShort, err := s.mb.yt.IsShort(videoId)
+		isShort, err := s.mb.yt.IsShort(videoId, videoTitle)
 		if err != nil {
 			log.Printf("failed to check if video is short: %v", err)
 		}
