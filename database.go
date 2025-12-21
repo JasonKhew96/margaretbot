@@ -39,36 +39,9 @@ CREATE TABLE IF NOT EXISTS cache (
 */
 
 type DbHelper struct {
-	db  bob.DB
-	ctx context.Context
-}
-
-func updateHook[T models.SubscriptionSlice | models.CacheSlice](ctx context.Context, _ bob.Executor, ss T) (context.Context, error) {
-	now := time.Now()
-	switch v := any(ss).(type) {
-	case models.SubscriptionSlice:
-		for _, s := range v {
-			s.UpdatedAt = now
-		}
-	case models.CacheSlice:
-		for _, s := range v {
-			s.UpdatedAt = now
-		}
-	}
-	return ctx, nil
-}
-
-func insertHook[T *models.SubscriptionSetter | *models.CacheSetter](ctx context.Context, _ bob.Executor, s T) (context.Context, error) {
-	now := omit.From(time.Now())
-	switch v := any(s).(type) {
-	case *models.SubscriptionSetter:
-		v.CreatedAt = now
-		v.UpdatedAt = now
-	case *models.CacheSetter:
-		v.CreatedAt = now
-		v.UpdatedAt = now
-	}
-	return ctx, nil
+	oriDb *sql.DB
+	db    bob.Executor
+	ctx   context.Context
 }
 
 func NewDatabaseHelper() (*DbHelper, error) {
@@ -79,19 +52,18 @@ func NewDatabaseHelper() (*DbHelper, error) {
 
 	db.SetMaxOpenConns(1)
 
-	models.Subscriptions.BeforeUpdateHooks.AppendHooks(updateHook)
-	models.Subscriptions.BeforeInsertHooks.AppendHooks(insertHook)
-	models.Caches.BeforeUpdateHooks.AppendHooks(updateHook)
-	models.Caches.BeforeUpdateHooks.AppendHooks(updateHook)
+	bobDb := bob.NewDB(db)
+	// bobDb := bob.Debug(bob.NewDB(db))
 
 	return &DbHelper{
-		db:  bob.NewDB(db),
-		ctx: context.Background(),
+		oriDb: db,
+		db:    bobDb,
+		ctx:   context.Background(),
 	}, nil
 }
 
 func (d *DbHelper) Close() error {
-	return d.db.Close()
+	return d.oriDb.Close()
 }
 
 type SubscriptionOpts struct {
@@ -106,7 +78,8 @@ func (d *DbHelper) UpsertSubscription(channelID string, opts *SubscriptionOpts) 
 	s := &models.SubscriptionSetter{
 		ChannelID: omit.From(channelID),
 	}
-	whitelist := []string{"updated_at", "created_at"}
+	s.UpdatedAt = omit.From(time.Now())
+	whitelist := []string{"updated_at"}
 	if opts != nil {
 		if opts.ChannelTitle != "" {
 			s.ChannelTitle = omitnull.From(opts.ChannelTitle)
@@ -161,6 +134,7 @@ func (d *DbHelper) UpsertCache(videoId string, isScheduled, isPublished bool) er
 		VideoID:     omit.From(videoId),
 		IsScheduled: omit.From(isScheduled),
 		IsPublished: omit.From(isPublished),
+		UpdatedAt:   omit.From(time.Now()),
 	}, im.OnConflict("video_id").DoUpdate(im.SetExcluded("is_scheduled", "is_published"))).One(d.ctx, d.db)
 	return err
 }
