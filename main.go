@@ -57,7 +57,7 @@ func main() {
 		ClientTimeout: 10 * time.Second,
 	})
 
-	time.AfterFunc(5*time.Minute, func() {
+	time.AfterFunc(time.Minute, func() {
 		loop(m)
 	})
 

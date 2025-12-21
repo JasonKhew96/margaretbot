@@ -365,6 +365,8 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		challenge := query.Get("hub.challenge")
 		leaseSeconds := query.Get("hub.lease_seconds")
 
+		log.Printf("%s %s", r.URL.Path, query)
+
 		switch mode {
 		case "denied":
 			reason := query.Get("hub.reason")
