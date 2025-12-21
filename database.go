@@ -43,10 +43,6 @@ type DbHelper struct {
 	ctx context.Context
 }
 
-type UpdateTable interface {
-	// UpdatedAt time.Time
-}
-
 func updateHook[T models.SubscriptionSlice | models.CacheSlice](ctx context.Context, _ bob.Executor, ss T) (context.Context, error) {
 	now := time.Now()
 	switch v := any(ss).(type) {
