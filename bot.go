@@ -486,16 +486,18 @@ func (b *BotHelper) handleListCommand(bot *gotgbot.Bot, ctx *ext.Context) error 
 			Type: "code",
 		})
 		quotedMsg.AddText("\n")
-		if sub.Regex.Valid && sub.Regex.String != "" {
+		r, ok := sub.Regex.Get()
+		if ok && r != "" {
 			quotedMsg.AddText("regex: ")
-			quotedMsg.AddEntity(sub.Regex.String, gotgbot.MessageEntity{
+			quotedMsg.AddEntity(r, gotgbot.MessageEntity{
 				Type: "code",
 			})
 			quotedMsg.AddText("\n")
 		}
-		if sub.RegexBan.Valid && sub.RegexBan.String != "" {
+		rb, ok := sub.RegexBan.Get()
+		if ok && rb != "" {
 			quotedMsg.AddText("regexban: ")
-			quotedMsg.AddEntity(sub.RegexBan.String, gotgbot.MessageEntity{
+			quotedMsg.AddEntity(rb, gotgbot.MessageEntity{
 				Type: "code",
 			})
 			quotedMsg.AddText("\n")

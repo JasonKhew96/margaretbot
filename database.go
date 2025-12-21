@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/JasonKhew96/margaretbot/models"
-	"github.com/aarondl/null/v8"
-	"github.com/aarondl/sqlboiler/v4/boil"
+	"github.com/aarondl/opt/omit"
+	"github.com/aarondl/opt/omitnull"
+	"github.com/stephenafamo/bob"
+	"github.com/stephenafamo/bob/dialect/sqlite/im"
 	_ "modernc.org/sqlite"
 )
 
@@ -37,8 +39,40 @@ CREATE TABLE IF NOT EXISTS cache (
 */
 
 type DbHelper struct {
-	db  *sql.DB
+	db  bob.DB
 	ctx context.Context
+}
+
+type UpdateTable interface {
+	// UpdatedAt time.Time
+}
+
+func updateHook[T models.SubscriptionSlice | models.CacheSlice](ctx context.Context, _ bob.Executor, ss T) (context.Context, error) {
+	now := time.Now()
+	switch v := any(ss).(type) {
+	case models.SubscriptionSlice:
+		for _, s := range v {
+			s.UpdatedAt = now
+		}
+	case models.CacheSlice:
+		for _, s := range v {
+			s.UpdatedAt = now
+		}
+	}
+	return ctx, nil
+}
+
+func insertHook[T *models.SubscriptionSetter | *models.CacheSetter](ctx context.Context, _ bob.Executor, s T) (context.Context, error) {
+	now := omit.From(time.Now())
+	switch v := any(s).(type) {
+	case *models.SubscriptionSetter:
+		v.CreatedAt = now
+		v.UpdatedAt = now
+	case *models.CacheSetter:
+		v.CreatedAt = now
+		v.UpdatedAt = now
+	}
+	return ctx, nil
 }
 
 func NewDatabaseHelper() (*DbHelper, error) {
@@ -49,8 +83,13 @@ func NewDatabaseHelper() (*DbHelper, error) {
 
 	db.SetMaxOpenConns(1)
 
+	models.Subscriptions.BeforeUpdateHooks.AppendHooks(updateHook)
+	models.Subscriptions.BeforeInsertHooks.AppendHooks(insertHook)
+	models.Caches.BeforeUpdateHooks.AppendHooks(updateHook)
+	models.Caches.BeforeUpdateHooks.AppendHooks(updateHook)
+
 	return &DbHelper{
-		db:  db,
+		db:  bob.NewDB(db),
 		ctx: context.Background(),
 	}, nil
 }
@@ -68,70 +107,73 @@ type SubscriptionOpts struct {
 }
 
 func (d *DbHelper) UpsertSubscription(channelID string, opts *SubscriptionOpts) error {
-	c := models.Subscription{
-		ChannelID: channelID,
+	s := &models.SubscriptionSetter{
+		ChannelID: omit.From(channelID),
 	}
 	whitelist := []string{"updated_at", "created_at"}
 	if opts != nil {
 		if opts.ChannelTitle != "" {
-			c.ChannelTitle = null.StringFrom(opts.ChannelTitle)
+			s.ChannelTitle = omitnull.From(opts.ChannelTitle)
 			whitelist = append(whitelist, "channel_title")
 		}
 		if !opts.ExpiredAt.IsZero() {
-			c.ExpiredAt = opts.ExpiredAt
+			s.ExpiredAt = omit.From(opts.ExpiredAt)
 			whitelist = append(whitelist, "expired_at")
 		}
 		if opts.ThreadID != 0 {
-			c.ThreadID = null.Int64From(opts.ThreadID)
+			s.ThreadID = omitnull.From(opts.ThreadID)
 			whitelist = append(whitelist, "thread_id")
 		}
 		if opts.Regex != "" {
-			c.Regex = null.StringFrom(opts.Regex)
+			s.Regex = omitnull.From(opts.Regex)
 			whitelist = append(whitelist, "regex")
 		}
 		if opts.RegexBan != "" {
-			c.RegexBan = null.StringFrom(opts.RegexBan)
+			s.RegexBan = omitnull.From(opts.RegexBan)
 			whitelist = append(whitelist, "regex_ban")
 		}
 	}
-	return c.Upsert(d.ctx, d.db, true, []string{"channel_id"}, boil.Whitelist(whitelist...), boil.Infer())
+	_, err := models.Subscriptions.Insert(
+		s, im.OnConflict("channel_id").DoUpdate(im.SetExcluded(whitelist...)),
+	).One(d.ctx, d.db)
+	return err
 }
 
 func (d *DbHelper) DeleteSubscription(channelID string) error {
-	_, err := models.Subscriptions(models.SubscriptionWhere.ChannelID.EQ(channelID)).DeleteAll(d.ctx, d.db)
+	_, err := models.Subscriptions.Delete(models.DeleteWhere.Subscriptions.ChannelID.EQ(channelID)).All(d.ctx, d.db)
 	return err
 }
 
 func (d *DbHelper) GetSubscription(channelID string) (*models.Subscription, error) {
-	return models.Subscriptions(models.SubscriptionWhere.ChannelID.EQ(channelID)).One(d.ctx, d.db)
+	return models.Subscriptions.Query(models.SelectWhere.Subscriptions.ChannelID.EQ(channelID)).One(d.ctx, d.db)
 }
 
 func (d *DbHelper) GetSubscriptionsByThreadID(threadID int64) (models.SubscriptionSlice, error) {
-	return models.Subscriptions(models.SubscriptionWhere.ThreadID.EQ(null.Int64From(threadID))).All(d.ctx, d.db)
+	return models.Subscriptions.Query(models.SelectWhere.Subscriptions.ThreadID.EQ(threadID)).All(d.ctx, d.db)
 }
 
 func (d *DbHelper) GetSubscriptions() (models.SubscriptionSlice, error) {
-	return models.Subscriptions().All(d.ctx, d.db)
+	return models.Subscriptions.Query().All(d.ctx, d.db)
 }
 
 func (d *DbHelper) GetExpiringSubscriptions() (models.SubscriptionSlice, error) {
-	return models.Subscriptions(models.SubscriptionWhere.ExpiredAt.LT(time.Now())).All(d.ctx, d.db)
+	return models.Subscriptions.Query(models.SelectWhere.Subscriptions.ExpiredAt.LT(time.Now())).All(d.ctx, d.db)
 }
 
 func (d *DbHelper) UpsertCache(videoId string, isScheduled, isPublished bool) error {
-	c := models.Cache{
-		VideoID:     videoId,
-		IsScheduled: isScheduled,
-		IsPublished: isPublished,
-	}
-	return c.Upsert(d.ctx, d.db, true, []string{"video_id"}, boil.Whitelist("is_scheduled", "is_published", "updated_at", "created_at"), boil.Infer())
+	_, err := models.Caches.Insert(&models.CacheSetter{
+		VideoID:     omit.From(videoId),
+		IsScheduled: omit.From(isScheduled),
+		IsPublished: omit.From(isPublished),
+	}, im.OnConflict("video_id").DoUpdate(im.SetExcluded("is_scheduled", "is_published"))).One(d.ctx, d.db)
+	return err
 }
 
 func (d *DbHelper) GetCache(videoId string) (*models.Cache, error) {
-	return models.Caches(models.CacheWhere.VideoID.EQ(videoId)).One(d.ctx, d.db)
+	return models.Caches.Query(models.SelectWhere.Caches.VideoID.EQ(videoId)).One(d.ctx, d.db)
 }
 
 func (d *DbHelper) DeleteCache() error {
-	_, err := models.Caches(models.CacheWhere.CreatedAt.LT(time.Now().Add(-time.Hour*24*7))).DeleteAll(d.ctx, d.db)
+	_, err := models.Caches.Delete(models.DeleteWhere.Caches.CreatedAt.LT(time.Now().Add(-time.Hour*24*7))).All(d.ctx, d.db)
 	return err
 }

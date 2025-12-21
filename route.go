@@ -496,7 +496,7 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		channelName := feed.Entry.Author.Name
 		channelUri := feed.Entry.Author.URI
 
-		if channel.ChannelTitle.String != channelName {
+		if channel.ChannelTitle.GetOrZero() != channelName {
 			err = s.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
 				ChannelTitle: channelName,
 				ThreadID:     threadIdInt,
@@ -505,10 +505,13 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				log.Printf("failed to upsert subscription: %v", err)
 			} else if len(subs) == 1 {
 				log.Printf("updating channel title %s: %s", channelId, channelName)
-				if _, err := s.mb.bot.bot.EditForumTopic(s.mb.config.ChatId, channel.ThreadID.Int64, &gotgbot.EditForumTopicOpts{
-					Name: channelName,
-				}); err != nil {
-					log.Printf("failed to EditForumTopic: %v", err)
+				tid, ok := channel.ThreadID.Get()
+				if ok {
+					if _, err := s.mb.bot.bot.EditForumTopic(s.mb.config.ChatId, tid, &gotgbot.EditForumTopicOpts{
+						Name: channelName,
+					}); err != nil {
+						log.Printf("failed to EditForumTopic: %v", err)
+					}
 				}
 			}
 		}
@@ -553,8 +556,9 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if channel.RegexBan.Valid && channel.RegexBan.String != "" {
-			re, err := regexp.Compile(channel.RegexBan.String)
+		rb, ok := channel.RegexBan.Get()
+		if ok && rb != "" {
+			re, err := regexp.Compile(rb)
 			if err != nil {
 				log.Printf("failed to compile regex: %v", err)
 				return
@@ -565,8 +569,9 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		if channel.Regex.Valid && channel.Regex.String != "" {
-			re, err := regexp.Compile(channel.Regex.String)
+		r, ok := channel.Regex.Get()
+		if ok && r != "" {
+			re, err := regexp.Compile(r)
 			if err != nil {
 				log.Printf("failed to compile regex: %v", err)
 				return
