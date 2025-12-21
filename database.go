@@ -94,7 +94,7 @@ func (d *DbHelper) UpsertSubscription(channelID string, opts *SubscriptionOpts) 
 			whitelist = append(whitelist, "regex_ban")
 		}
 	}
-	return c.Upsert(d.ctx, d.db, true, []string{"channel_id"}, boil.Whitelist(whitelist...), boil.Infer())
+	return c.Upsert(d.ctx, d.db, true, []string{"channel_id"}, boil.Greylist(whitelist...), boil.Infer())
 }
 
 func (d *DbHelper) DeleteSubscription(channelID string) error {
@@ -124,7 +124,7 @@ func (d *DbHelper) UpsertCache(videoId string, isScheduled, isPublished bool) er
 		IsScheduled: isScheduled,
 		IsPublished: isPublished,
 	}
-	return c.Upsert(d.ctx, d.db, true, []string{"video_id"}, boil.Whitelist("is_scheduled", "is_published"), boil.Infer())
+	return c.Upsert(d.ctx, d.db, true, []string{"video_id"}, boil.Greylist("is_scheduled", "is_published"), boil.Infer())
 }
 
 func (d *DbHelper) GetCache(videoId string) (*models.Cache, error) {
