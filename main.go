@@ -93,7 +93,7 @@ func loop(margaret *MargaretBot) {
 		callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", margaret.config.ServerDomain, fmt.Sprintf("%x", newSecret), sub.ThreadID, sub.ChannelID)
 		topicUrl := fmt.Sprintf("https://www.youtube.com/xml/feeds/videos.xml?channel_id=%s", sub.ChannelID)
 
-		if err := margaret.ws.Subscribe(websub.ModeSubscribe, callbackUrl, topicUrl, nil); err != nil {
+		if err := margaret.ws.Subscribe(websub.ModeSubscribe, callbackUrl, topicUrl, &websub.SubscribeOpts{LeaseSeconds: 604800}); err != nil {
 			fmt.Printf("failed to renew subscription: %v\n", err)
 			continue
 		}
