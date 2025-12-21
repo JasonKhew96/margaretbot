@@ -157,7 +157,7 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 
 	playlistId := "UU" + channelId[2:]
 
-	playlistItems, err := b.mb.yt.service.PlaylistItems.List([]string{"contentDetails"}).PlaylistId(playlistId).MaxResults(8).Do()
+	playlistItems, err := b.mb.yt.service.PlaylistItems.List([]string{"snippet", "contentDetails"}).PlaylistId(playlistId).MaxResults(8).Do()
 	if err != nil {
 		return err
 	}
