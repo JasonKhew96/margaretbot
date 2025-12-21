@@ -142,7 +142,8 @@ func (s *WebhookHandler) processAPI() {
 				log.Printf("skip scheduled %s: %s", videoId, videoTitle)
 				continue
 			}
-		} else if publishedTime != "" {
+		}
+		if publishedTime != "" {
 			if cache != nil && cache.IsPublished {
 				log.Printf("skip published %s: %s", videoId, videoTitle)
 				continue
