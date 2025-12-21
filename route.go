@@ -501,7 +501,6 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		if channel.ChannelTitle.GetOrZero() != channelName {
 			err = s.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
 				ChannelTitle: channelName,
-				ThreadID:     threadIdInt,
 			})
 			if err != nil {
 				log.Printf("failed to upsert subscription: %v", err)

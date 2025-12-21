@@ -71,11 +71,11 @@ func (f *Factory) FromExistingSubscription(m *models.Subscription) *Subscription
 	o.ChannelID = func() string { return m.ChannelID }
 	o.ThreadID = func() null.Val[int64] { return m.ThreadID }
 	o.Regex = func() null.Val[string] { return m.Regex }
-	o.ExpiredAt = func() time.Time { return m.ExpiredAt }
 	o.CreatedAt = func() time.Time { return m.CreatedAt }
 	o.UpdatedAt = func() time.Time { return m.UpdatedAt }
 	o.RegexBan = func() null.Val[string] { return m.RegexBan }
 	o.ChannelTitle = func() null.Val[string] { return m.ChannelTitle }
+	o.ExpiredAt = func() null.Val[time.Time] { return m.ExpiredAt }
 
 	return o
 }

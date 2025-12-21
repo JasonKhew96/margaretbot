@@ -22,15 +22,15 @@ import (
 
 // Subscription is an object representing the database table.
 type Subscription struct {
-	ID           int64            `db:"id,pk" `
-	ChannelID    string           `db:"channel_id" `
-	ThreadID     null.Val[int64]  `db:"thread_id" `
-	Regex        null.Val[string] `db:"regex" `
-	ExpiredAt    time.Time        `db:"expired_at" `
-	CreatedAt    time.Time        `db:"created_at" `
-	UpdatedAt    time.Time        `db:"updated_at" `
-	RegexBan     null.Val[string] `db:"regex_ban" `
-	ChannelTitle null.Val[string] `db:"channel_title" `
+	ID           int64               `db:"id,pk" `
+	ChannelID    string              `db:"channel_id" `
+	ThreadID     null.Val[int64]     `db:"thread_id" `
+	Regex        null.Val[string]    `db:"regex" `
+	CreatedAt    time.Time           `db:"created_at" `
+	UpdatedAt    time.Time           `db:"updated_at" `
+	RegexBan     null.Val[string]    `db:"regex_ban" `
+	ChannelTitle null.Val[string]    `db:"channel_title" `
+	ExpiredAt    null.Val[time.Time] `db:"expired_at" `
 }
 
 // SubscriptionSlice is an alias for a slice of pointers to Subscription.
@@ -46,18 +46,18 @@ type SubscriptionsQuery = *sqlite.ViewQuery[*Subscription, SubscriptionSlice]
 func buildSubscriptionColumns(alias string) subscriptionColumns {
 	return subscriptionColumns{
 		ColumnsExpr: expr.NewColumnsExpr(
-			"id", "channel_id", "thread_id", "regex", "expired_at", "created_at", "updated_at", "regex_ban", "channel_title",
+			"id", "channel_id", "thread_id", "regex", "created_at", "updated_at", "regex_ban", "channel_title", "expired_at",
 		).WithParent("subscription"),
 		tableAlias:   alias,
 		ID:           sqlite.Quote(alias, "id"),
 		ChannelID:    sqlite.Quote(alias, "channel_id"),
 		ThreadID:     sqlite.Quote(alias, "thread_id"),
 		Regex:        sqlite.Quote(alias, "regex"),
-		ExpiredAt:    sqlite.Quote(alias, "expired_at"),
 		CreatedAt:    sqlite.Quote(alias, "created_at"),
 		UpdatedAt:    sqlite.Quote(alias, "updated_at"),
 		RegexBan:     sqlite.Quote(alias, "regex_ban"),
 		ChannelTitle: sqlite.Quote(alias, "channel_title"),
+		ExpiredAt:    sqlite.Quote(alias, "expired_at"),
 	}
 }
 
@@ -68,11 +68,11 @@ type subscriptionColumns struct {
 	ChannelID    sqlite.Expression
 	ThreadID     sqlite.Expression
 	Regex        sqlite.Expression
-	ExpiredAt    sqlite.Expression
 	CreatedAt    sqlite.Expression
 	UpdatedAt    sqlite.Expression
 	RegexBan     sqlite.Expression
 	ChannelTitle sqlite.Expression
+	ExpiredAt    sqlite.Expression
 }
 
 func (c subscriptionColumns) Alias() string {
@@ -87,15 +87,15 @@ func (subscriptionColumns) AliasedAs(alias string) subscriptionColumns {
 // All values are optional, and do not have to be set
 // Generated columns are not included
 type SubscriptionSetter struct {
-	ID           omit.Val[int64]      `db:"id,pk" `
-	ChannelID    omit.Val[string]     `db:"channel_id" `
-	ThreadID     omitnull.Val[int64]  `db:"thread_id" `
-	Regex        omitnull.Val[string] `db:"regex" `
-	ExpiredAt    omit.Val[time.Time]  `db:"expired_at" `
-	CreatedAt    omit.Val[time.Time]  `db:"created_at" `
-	UpdatedAt    omit.Val[time.Time]  `db:"updated_at" `
-	RegexBan     omitnull.Val[string] `db:"regex_ban" `
-	ChannelTitle omitnull.Val[string] `db:"channel_title" `
+	ID           omit.Val[int64]         `db:"id,pk" `
+	ChannelID    omit.Val[string]        `db:"channel_id" `
+	ThreadID     omitnull.Val[int64]     `db:"thread_id" `
+	Regex        omitnull.Val[string]    `db:"regex" `
+	CreatedAt    omit.Val[time.Time]     `db:"created_at" `
+	UpdatedAt    omit.Val[time.Time]     `db:"updated_at" `
+	RegexBan     omitnull.Val[string]    `db:"regex_ban" `
+	ChannelTitle omitnull.Val[string]    `db:"channel_title" `
+	ExpiredAt    omitnull.Val[time.Time] `db:"expired_at" `
 }
 
 func (s SubscriptionSetter) SetColumns() []string {
@@ -112,9 +112,6 @@ func (s SubscriptionSetter) SetColumns() []string {
 	if !s.Regex.IsUnset() {
 		vals = append(vals, "regex")
 	}
-	if s.ExpiredAt.IsValue() {
-		vals = append(vals, "expired_at")
-	}
 	if s.CreatedAt.IsValue() {
 		vals = append(vals, "created_at")
 	}
@@ -126,6 +123,9 @@ func (s SubscriptionSetter) SetColumns() []string {
 	}
 	if !s.ChannelTitle.IsUnset() {
 		vals = append(vals, "channel_title")
+	}
+	if !s.ExpiredAt.IsUnset() {
+		vals = append(vals, "expired_at")
 	}
 	return vals
 }
@@ -143,9 +143,6 @@ func (s SubscriptionSetter) Overwrite(t *Subscription) {
 	if !s.Regex.IsUnset() {
 		t.Regex = s.Regex.MustGetNull()
 	}
-	if s.ExpiredAt.IsValue() {
-		t.ExpiredAt = s.ExpiredAt.MustGet()
-	}
 	if s.CreatedAt.IsValue() {
 		t.CreatedAt = s.CreatedAt.MustGet()
 	}
@@ -157,6 +154,9 @@ func (s SubscriptionSetter) Overwrite(t *Subscription) {
 	}
 	if !s.ChannelTitle.IsUnset() {
 		t.ChannelTitle = s.ChannelTitle.MustGetNull()
+	}
+	if !s.ExpiredAt.IsUnset() {
+		t.ExpiredAt = s.ExpiredAt.MustGetNull()
 	}
 }
 
@@ -191,10 +191,6 @@ func (s *SubscriptionSetter) Apply(q *dialect.InsertQuery) {
 			vals = append(vals, sqlite.Arg(s.Regex.MustGetNull()))
 		}
 
-		if s.ExpiredAt.IsValue() {
-			vals = append(vals, sqlite.Arg(s.ExpiredAt.MustGet()))
-		}
-
 		if s.CreatedAt.IsValue() {
 			vals = append(vals, sqlite.Arg(s.CreatedAt.MustGet()))
 		}
@@ -209,6 +205,10 @@ func (s *SubscriptionSetter) Apply(q *dialect.InsertQuery) {
 
 		if !s.ChannelTitle.IsUnset() {
 			vals = append(vals, sqlite.Arg(s.ChannelTitle.MustGetNull()))
+		}
+
+		if !s.ExpiredAt.IsUnset() {
+			vals = append(vals, sqlite.Arg(s.ExpiredAt.MustGetNull()))
 		}
 
 		if len(vals) == 0 {
@@ -254,13 +254,6 @@ func (s SubscriptionSetter) Expressions(prefix ...string) []bob.Expression {
 		}})
 	}
 
-	if s.ExpiredAt.IsValue() {
-		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
-			sqlite.Quote(append(prefix, "expired_at")...),
-			sqlite.Arg(s.ExpiredAt),
-		}})
-	}
-
 	if s.CreatedAt.IsValue() {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "created_at")...),
@@ -286,6 +279,13 @@ func (s SubscriptionSetter) Expressions(prefix ...string) []bob.Expression {
 		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
 			sqlite.Quote(append(prefix, "channel_title")...),
 			sqlite.Arg(s.ChannelTitle),
+		}})
+	}
+
+	if !s.ExpiredAt.IsUnset() {
+		exprs = append(exprs, expr.Join{Sep: " = ", Exprs: []bob.Expression{
+			sqlite.Quote(append(prefix, "expired_at")...),
+			sqlite.Arg(s.ExpiredAt),
 		}})
 	}
 
@@ -519,11 +519,11 @@ type subscriptionWhere[Q sqlite.Filterable] struct {
 	ChannelID    sqlite.WhereMod[Q, string]
 	ThreadID     sqlite.WhereNullMod[Q, int64]
 	Regex        sqlite.WhereNullMod[Q, string]
-	ExpiredAt    sqlite.WhereMod[Q, time.Time]
 	CreatedAt    sqlite.WhereMod[Q, time.Time]
 	UpdatedAt    sqlite.WhereMod[Q, time.Time]
 	RegexBan     sqlite.WhereNullMod[Q, string]
 	ChannelTitle sqlite.WhereNullMod[Q, string]
+	ExpiredAt    sqlite.WhereNullMod[Q, time.Time]
 }
 
 func (subscriptionWhere[Q]) AliasedAs(alias string) subscriptionWhere[Q] {
@@ -536,10 +536,10 @@ func buildSubscriptionWhere[Q sqlite.Filterable](cols subscriptionColumns) subsc
 		ChannelID:    sqlite.Where[Q, string](cols.ChannelID),
 		ThreadID:     sqlite.WhereNull[Q, int64](cols.ThreadID),
 		Regex:        sqlite.WhereNull[Q, string](cols.Regex),
-		ExpiredAt:    sqlite.Where[Q, time.Time](cols.ExpiredAt),
 		CreatedAt:    sqlite.Where[Q, time.Time](cols.CreatedAt),
 		UpdatedAt:    sqlite.Where[Q, time.Time](cols.UpdatedAt),
 		RegexBan:     sqlite.WhereNull[Q, string](cols.RegexBan),
 		ChannelTitle: sqlite.WhereNull[Q, string](cols.ChannelTitle),
+		ExpiredAt:    sqlite.WhereNull[Q, time.Time](cols.ExpiredAt),
 	}
 }

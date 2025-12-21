@@ -41,11 +41,11 @@ type SubscriptionTemplate struct {
 	ChannelID    func() string
 	ThreadID     func() null.Val[int64]
 	Regex        func() null.Val[string]
-	ExpiredAt    func() time.Time
 	CreatedAt    func() time.Time
 	UpdatedAt    func() time.Time
 	RegexBan     func() null.Val[string]
 	ChannelTitle func() null.Val[string]
+	ExpiredAt    func() null.Val[time.Time]
 
 	f *Factory
 
@@ -84,10 +84,6 @@ func (o SubscriptionTemplate) BuildSetter() *models.SubscriptionSetter {
 		val := o.Regex()
 		m.Regex = omitnull.FromNull(val)
 	}
-	if o.ExpiredAt != nil {
-		val := o.ExpiredAt()
-		m.ExpiredAt = omit.From(val)
-	}
 	if o.CreatedAt != nil {
 		val := o.CreatedAt()
 		m.CreatedAt = omit.From(val)
@@ -103,6 +99,10 @@ func (o SubscriptionTemplate) BuildSetter() *models.SubscriptionSetter {
 	if o.ChannelTitle != nil {
 		val := o.ChannelTitle()
 		m.ChannelTitle = omitnull.FromNull(val)
+	}
+	if o.ExpiredAt != nil {
+		val := o.ExpiredAt()
+		m.ExpiredAt = omitnull.FromNull(val)
 	}
 
 	return m
@@ -138,9 +138,6 @@ func (o SubscriptionTemplate) Build() *models.Subscription {
 	if o.Regex != nil {
 		m.Regex = o.Regex()
 	}
-	if o.ExpiredAt != nil {
-		m.ExpiredAt = o.ExpiredAt()
-	}
 	if o.CreatedAt != nil {
 		m.CreatedAt = o.CreatedAt()
 	}
@@ -152,6 +149,9 @@ func (o SubscriptionTemplate) Build() *models.Subscription {
 	}
 	if o.ChannelTitle != nil {
 		m.ChannelTitle = o.ChannelTitle()
+	}
+	if o.ExpiredAt != nil {
+		m.ExpiredAt = o.ExpiredAt()
 	}
 
 	o.setModelRels(m)
@@ -176,10 +176,6 @@ func ensureCreatableSubscription(m *models.SubscriptionSetter) {
 	if !(m.ChannelID.IsValue()) {
 		val := random_string(nil)
 		m.ChannelID = omit.From(val)
-	}
-	if !(m.ExpiredAt.IsValue()) {
-		val := random_time_Time(nil)
-		m.ExpiredAt = omit.From(val)
 	}
 }
 
@@ -285,11 +281,11 @@ func (m subscriptionMods) RandomizeAllColumns(f *faker.Faker) SubscriptionMod {
 		SubscriptionMods.RandomChannelID(f),
 		SubscriptionMods.RandomThreadID(f),
 		SubscriptionMods.RandomRegex(f),
-		SubscriptionMods.RandomExpiredAt(f),
 		SubscriptionMods.RandomCreatedAt(f),
 		SubscriptionMods.RandomUpdatedAt(f),
 		SubscriptionMods.RandomRegexBan(f),
 		SubscriptionMods.RandomChannelTitle(f),
+		SubscriptionMods.RandomExpiredAt(f),
 	}
 }
 
@@ -462,37 +458,6 @@ func (m subscriptionMods) RandomRegexNotNull(f *faker.Faker) SubscriptionMod {
 }
 
 // Set the model columns to this value
-func (m subscriptionMods) ExpiredAt(val time.Time) SubscriptionMod {
-	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
-		o.ExpiredAt = func() time.Time { return val }
-	})
-}
-
-// Set the Column from the function
-func (m subscriptionMods) ExpiredAtFunc(f func() time.Time) SubscriptionMod {
-	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
-		o.ExpiredAt = f
-	})
-}
-
-// Clear any values for the column
-func (m subscriptionMods) UnsetExpiredAt() SubscriptionMod {
-	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
-		o.ExpiredAt = nil
-	})
-}
-
-// Generates a random value for the column using the given faker
-// if faker is nil, a default faker is used
-func (m subscriptionMods) RandomExpiredAt(f *faker.Faker) SubscriptionMod {
-	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
-		o.ExpiredAt = func() time.Time {
-			return random_time_Time(f)
-		}
-	})
-}
-
-// Set the model columns to this value
 func (m subscriptionMods) CreatedAt(val time.Time) SubscriptionMod {
 	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
 		o.CreatedAt = func() time.Time { return val }
@@ -655,6 +620,59 @@ func (m subscriptionMods) RandomChannelTitleNotNull(f *faker.Faker) Subscription
 			}
 
 			val := random_string(f)
+			return null.From(val)
+		}
+	})
+}
+
+// Set the model columns to this value
+func (m subscriptionMods) ExpiredAt(val null.Val[time.Time]) SubscriptionMod {
+	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
+		o.ExpiredAt = func() null.Val[time.Time] { return val }
+	})
+}
+
+// Set the Column from the function
+func (m subscriptionMods) ExpiredAtFunc(f func() null.Val[time.Time]) SubscriptionMod {
+	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
+		o.ExpiredAt = f
+	})
+}
+
+// Clear any values for the column
+func (m subscriptionMods) UnsetExpiredAt() SubscriptionMod {
+	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
+		o.ExpiredAt = nil
+	})
+}
+
+// Generates a random value for the column using the given faker
+// if faker is nil, a default faker is used
+// The generated value is sometimes null
+func (m subscriptionMods) RandomExpiredAt(f *faker.Faker) SubscriptionMod {
+	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
+		o.ExpiredAt = func() null.Val[time.Time] {
+			if f == nil {
+				f = &defaultFaker
+			}
+
+			val := random_time_Time(f)
+			return null.From(val)
+		}
+	})
+}
+
+// Generates a random value for the column using the given faker
+// if faker is nil, a default faker is used
+// The generated value is never null
+func (m subscriptionMods) RandomExpiredAtNotNull(f *faker.Faker) SubscriptionMod {
+	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
+		o.ExpiredAt = func() null.Val[time.Time] {
+			if f == nil {
+				f = &defaultFaker
+			}
+
+			val := random_time_Time(f)
 			return null.From(val)
 		}
 	})

@@ -51,15 +51,6 @@ var Subscriptions = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
-		ExpiredAt: column{
-			Name:      "expired_at",
-			DBType:    "TIMESTAMP",
-			Default:   "",
-			Comment:   "",
-			Nullable:  false,
-			Generated: false,
-			AutoIncr:  false,
-		},
 		CreatedAt: column{
 			Name:      "created_at",
 			DBType:    "TIMESTAMP",
@@ -90,6 +81,15 @@ var Subscriptions = Table[
 		ChannelTitle: column{
 			Name:      "channel_title",
 			DBType:    "TEXT",
+			Default:   "NULL",
+			Comment:   "",
+			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ExpiredAt: column{
+			Name:      "expired_at",
+			DBType:    "TIMESTAMP",
 			Default:   "NULL",
 			Comment:   "",
 			Nullable:  true,
@@ -168,16 +168,16 @@ type subscriptionColumns struct {
 	ChannelID    column
 	ThreadID     column
 	Regex        column
-	ExpiredAt    column
 	CreatedAt    column
 	UpdatedAt    column
 	RegexBan     column
 	ChannelTitle column
+	ExpiredAt    column
 }
 
 func (c subscriptionColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.ChannelID, c.ThreadID, c.Regex, c.ExpiredAt, c.CreatedAt, c.UpdatedAt, c.RegexBan, c.ChannelTitle,
+		c.ID, c.ChannelID, c.ThreadID, c.Regex, c.CreatedAt, c.UpdatedAt, c.RegexBan, c.ChannelTitle, c.ExpiredAt,
 	}
 }
 

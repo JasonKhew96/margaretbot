@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS subscription (
 	thread_id INTEGER,
 	regex TEXT,
 	regex_ban TEXT,
-	expired_at TIMESTAMP NOT NULL,
+	expired_at TIMESTAMP,
 	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -86,7 +86,7 @@ func (d *DbHelper) UpsertSubscription(channelID string, opts *SubscriptionOpts) 
 			whitelist = append(whitelist, "channel_title")
 		}
 		if !opts.ExpiredAt.IsZero() {
-			s.ExpiredAt = omit.From(opts.ExpiredAt)
+			s.ExpiredAt = omitnull.From(opts.ExpiredAt)
 			whitelist = append(whitelist, "expired_at")
 		}
 		if opts.ThreadID != 0 {
@@ -104,7 +104,7 @@ func (d *DbHelper) UpsertSubscription(channelID string, opts *SubscriptionOpts) 
 	}
 	_, err := models.Subscriptions.Insert(
 		s, im.OnConflict("channel_id").DoUpdate(im.SetExcluded(whitelist...)),
-	).One(d.ctx, d.db)
+	).Exec(d.ctx, d.db)
 	return err
 }
 
@@ -135,7 +135,7 @@ func (d *DbHelper) UpsertCache(videoId string, isScheduled, isPublished bool) er
 		IsScheduled: omit.From(isScheduled),
 		IsPublished: omit.From(isPublished),
 		UpdatedAt:   omit.From(time.Now()),
-	}, im.OnConflict("video_id").DoUpdate(im.SetExcluded("is_scheduled", "is_published"))).One(d.ctx, d.db)
+	}, im.OnConflict("video_id").DoUpdate(im.SetExcluded("is_scheduled", "is_published"))).Exec(d.ctx, d.db)
 	return err
 }
 
