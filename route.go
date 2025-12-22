@@ -476,6 +476,20 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		channelName := feed.Entry.Author.Name
+		channelUri := feed.Entry.Author.URI
+		videoId := feed.Entry.VideoId
+		videoTitle := feed.Entry.Title
+		videoUrl := feed.Entry.Link.Href
+
+		publishedTime, err := time.Parse("2006-01-02T15:04:05-07:00", feed.Entry.Published)
+		if err != nil {
+			log.Printf("failed to parsed published time")
+		} else if time.Since(publishedTime) > 24*time.Hour*3 {
+			log.Printf("%s publishedTime is in the past 3 days %s: %s", videoId, publishedTime, videoTitle)
+			return
+		}
+
 		channel, err := s.mb.db.GetSubscription(channelId)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -495,9 +509,6 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			log.Printf("failed to get subscriptions: %v", err)
 			return
 		}
-
-		channelName := feed.Entry.Author.Name
-		channelUri := feed.Entry.Author.URI
 
 		if channel.ChannelTitle.GetOrZero() != channelName {
 			err = s.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
@@ -524,14 +535,10 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		videoId := feed.Entry.VideoId
 		if videoId == "" {
 			log.Println("videoId is missing...")
 			return
 		}
-
-		videoTitle := feed.Entry.Title
-		videoUrl := feed.Entry.Link.Href
 
 		cache, err := s.mb.db.GetCache(videoId)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
