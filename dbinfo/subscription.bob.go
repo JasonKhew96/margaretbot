@@ -33,15 +33,6 @@ var Subscriptions = Table[
 			Generated: false,
 			AutoIncr:  false,
 		},
-		ThreadID: column{
-			Name:      "thread_id",
-			DBType:    "INTEGER",
-			Default:   "NULL",
-			Comment:   "",
-			Nullable:  true,
-			Generated: false,
-			AutoIncr:  false,
-		},
 		Regex: column{
 			Name:      "regex",
 			DBType:    "TEXT",
@@ -93,6 +84,15 @@ var Subscriptions = Table[
 			Default:   "NULL",
 			Comment:   "",
 			Nullable:  true,
+			Generated: false,
+			AutoIncr:  false,
+		},
+		ThreadID: column{
+			Name:      "thread_id",
+			DBType:    "INTEGER",
+			Default:   "0",
+			Comment:   "",
+			Nullable:  false,
 			Generated: false,
 			AutoIncr:  false,
 		},
@@ -166,18 +166,18 @@ var Subscriptions = Table[
 type subscriptionColumns struct {
 	ID           column
 	ChannelID    column
-	ThreadID     column
 	Regex        column
 	CreatedAt    column
 	UpdatedAt    column
 	RegexBan     column
 	ChannelTitle column
 	ExpiredAt    column
+	ThreadID     column
 }
 
 func (c subscriptionColumns) AsSlice() []column {
 	return []column{
-		c.ID, c.ChannelID, c.ThreadID, c.Regex, c.CreatedAt, c.UpdatedAt, c.RegexBan, c.ChannelTitle, c.ExpiredAt,
+		c.ID, c.ChannelID, c.Regex, c.CreatedAt, c.UpdatedAt, c.RegexBan, c.ChannelTitle, c.ExpiredAt, c.ThreadID,
 	}
 }
 

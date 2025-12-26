@@ -39,13 +39,13 @@ func (mods SubscriptionModSlice) Apply(ctx context.Context, n *SubscriptionTempl
 type SubscriptionTemplate struct {
 	ID           func() int64
 	ChannelID    func() string
-	ThreadID     func() null.Val[int64]
 	Regex        func() null.Val[string]
 	CreatedAt    func() time.Time
 	UpdatedAt    func() time.Time
 	RegexBan     func() null.Val[string]
 	ChannelTitle func() null.Val[string]
 	ExpiredAt    func() null.Val[time.Time]
+	ThreadID     func() int64
 
 	f *Factory
 
@@ -76,10 +76,6 @@ func (o SubscriptionTemplate) BuildSetter() *models.SubscriptionSetter {
 		val := o.ChannelID()
 		m.ChannelID = omit.From(val)
 	}
-	if o.ThreadID != nil {
-		val := o.ThreadID()
-		m.ThreadID = omitnull.FromNull(val)
-	}
 	if o.Regex != nil {
 		val := o.Regex()
 		m.Regex = omitnull.FromNull(val)
@@ -103,6 +99,10 @@ func (o SubscriptionTemplate) BuildSetter() *models.SubscriptionSetter {
 	if o.ExpiredAt != nil {
 		val := o.ExpiredAt()
 		m.ExpiredAt = omitnull.FromNull(val)
+	}
+	if o.ThreadID != nil {
+		val := o.ThreadID()
+		m.ThreadID = omit.From(val)
 	}
 
 	return m
@@ -132,9 +132,6 @@ func (o SubscriptionTemplate) Build() *models.Subscription {
 	if o.ChannelID != nil {
 		m.ChannelID = o.ChannelID()
 	}
-	if o.ThreadID != nil {
-		m.ThreadID = o.ThreadID()
-	}
 	if o.Regex != nil {
 		m.Regex = o.Regex()
 	}
@@ -152,6 +149,9 @@ func (o SubscriptionTemplate) Build() *models.Subscription {
 	}
 	if o.ExpiredAt != nil {
 		m.ExpiredAt = o.ExpiredAt()
+	}
+	if o.ThreadID != nil {
+		m.ThreadID = o.ThreadID()
 	}
 
 	o.setModelRels(m)
@@ -279,13 +279,13 @@ func (m subscriptionMods) RandomizeAllColumns(f *faker.Faker) SubscriptionMod {
 	return SubscriptionModSlice{
 		SubscriptionMods.RandomID(f),
 		SubscriptionMods.RandomChannelID(f),
-		SubscriptionMods.RandomThreadID(f),
 		SubscriptionMods.RandomRegex(f),
 		SubscriptionMods.RandomCreatedAt(f),
 		SubscriptionMods.RandomUpdatedAt(f),
 		SubscriptionMods.RandomRegexBan(f),
 		SubscriptionMods.RandomChannelTitle(f),
 		SubscriptionMods.RandomExpiredAt(f),
+		SubscriptionMods.RandomThreadID(f),
 	}
 }
 
@@ -347,59 +347,6 @@ func (m subscriptionMods) RandomChannelID(f *faker.Faker) SubscriptionMod {
 	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
 		o.ChannelID = func() string {
 			return random_string(f)
-		}
-	})
-}
-
-// Set the model columns to this value
-func (m subscriptionMods) ThreadID(val null.Val[int64]) SubscriptionMod {
-	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
-		o.ThreadID = func() null.Val[int64] { return val }
-	})
-}
-
-// Set the Column from the function
-func (m subscriptionMods) ThreadIDFunc(f func() null.Val[int64]) SubscriptionMod {
-	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
-		o.ThreadID = f
-	})
-}
-
-// Clear any values for the column
-func (m subscriptionMods) UnsetThreadID() SubscriptionMod {
-	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
-		o.ThreadID = nil
-	})
-}
-
-// Generates a random value for the column using the given faker
-// if faker is nil, a default faker is used
-// The generated value is sometimes null
-func (m subscriptionMods) RandomThreadID(f *faker.Faker) SubscriptionMod {
-	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
-		o.ThreadID = func() null.Val[int64] {
-			if f == nil {
-				f = &defaultFaker
-			}
-
-			val := random_int64(f)
-			return null.From(val)
-		}
-	})
-}
-
-// Generates a random value for the column using the given faker
-// if faker is nil, a default faker is used
-// The generated value is never null
-func (m subscriptionMods) RandomThreadIDNotNull(f *faker.Faker) SubscriptionMod {
-	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
-		o.ThreadID = func() null.Val[int64] {
-			if f == nil {
-				f = &defaultFaker
-			}
-
-			val := random_int64(f)
-			return null.From(val)
 		}
 	})
 }
@@ -674,6 +621,37 @@ func (m subscriptionMods) RandomExpiredAtNotNull(f *faker.Faker) SubscriptionMod
 
 			val := random_time_Time(f)
 			return null.From(val)
+		}
+	})
+}
+
+// Set the model columns to this value
+func (m subscriptionMods) ThreadID(val int64) SubscriptionMod {
+	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
+		o.ThreadID = func() int64 { return val }
+	})
+}
+
+// Set the Column from the function
+func (m subscriptionMods) ThreadIDFunc(f func() int64) SubscriptionMod {
+	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
+		o.ThreadID = f
+	})
+}
+
+// Clear any values for the column
+func (m subscriptionMods) UnsetThreadID() SubscriptionMod {
+	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
+		o.ThreadID = nil
+	})
+}
+
+// Generates a random value for the column using the given faker
+// if faker is nil, a default faker is used
+func (m subscriptionMods) RandomThreadID(f *faker.Faker) SubscriptionMod {
+	return SubscriptionModFunc(func(_ context.Context, o *SubscriptionTemplate) {
+		o.ThreadID = func() int64 {
+			return random_int64(f)
 		}
 	})
 }

@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS subscription (
 	id INTEGER PRIMARY KEY,
 	channel_id TEXT UNIQUE NOT NULL,
 	channel_title TEXT,
-	thread_id INTEGER,
+	thread_id INTEGER NOT NULL,
 	regex TEXT,
 	regex_ban TEXT,
 	expired_at TIMESTAMP,
@@ -90,7 +90,7 @@ func (d *DbHelper) UpsertSubscription(channelID string, opts *SubscriptionOpts) 
 			whitelist = append(whitelist, "expired_at")
 		}
 		if opts.ThreadID != 0 {
-			s.ThreadID = omitnull.From(opts.ThreadID)
+			s.ThreadID = omit.From(opts.ThreadID)
 			whitelist = append(whitelist, "thread_id")
 		}
 		if opts.Regex != "" {

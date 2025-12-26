@@ -518,14 +518,12 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				log.Printf("failed to upsert subscription: %v", err)
 			} else if len(subs) == 1 {
 				log.Printf("updating channel title %s: %s", channelId, channelName)
-				tid, ok := channel.ThreadID.Get()
-				if ok {
-					if _, err := s.mb.bot.bot.EditForumTopic(s.mb.config.ChatId, tid, &gotgbot.EditForumTopicOpts{
-						Name: channelName,
-					}); err != nil {
-						log.Printf("failed to EditForumTopic: %v", err)
-					}
+				if _, err := s.mb.bot.bot.EditForumTopic(s.mb.config.ChatId, channel.ThreadID, &gotgbot.EditForumTopicOpts{
+					Name: channelName,
+				}); err != nil {
+					log.Printf("failed to EditForumTopic: %v", err)
 				}
+
 			}
 		}
 
