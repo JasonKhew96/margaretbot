@@ -99,7 +99,7 @@ func loop(margaret *MargaretBot) {
 		}
 	}
 
-	time.AfterFunc(1*time.Hour, func() {
+	time.AfterFunc(5*time.Minute, func() {
 		loop(margaret)
 	})
 }
