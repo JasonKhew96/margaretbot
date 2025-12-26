@@ -69,13 +69,13 @@ func main() {
 }
 
 func loop(margaret *MargaretBot) {
-	if err := margaret.db.DeleteCache(); err != nil {
-		fmt.Printf("failed to delete cache: %v\n", err)
-		time.AfterFunc(5*time.Minute, func() {
-			loop(margaret)
-		})
-		return
-	}
+	// if err := margaret.db.DeleteCache(); err != nil {
+	// 	fmt.Printf("failed to delete cache: %v\n", err)
+	// 	time.AfterFunc(5*time.Minute, func() {
+	// 		loop(margaret)
+	// 	})
+	// 	return
+	// }
 
 	subs, err := margaret.db.GetExpiringSubscriptions()
 	if err != nil {

@@ -151,13 +151,13 @@ func (s *WebhookHandler) processAPI() {
 			if err := s.mb.db.UpsertCache(videoId, true, true); err != nil {
 				log.Printf("failed to update cache: %v", err)
 			}
-			parsedTime, err := time.Parse("2006-01-02T15:04:05Z", publishedTime)
-			if err != nil {
-				log.Printf("failed to parse published time: %v", err)
-			} else if time.Since(parsedTime) > 24*time.Hour*3 {
-				log.Printf("%s publishedTime is in the past 3 days %s: %s", video.Id, publishedTime, video.Snippet.Title)
-				continue
-			}
+			// parsedTime, err := time.Parse("2006-01-02T15:04:05Z", publishedTime)
+			// if err != nil {
+			// 	log.Printf("failed to parse published time: %v", err)
+			// } else if time.Since(parsedTime) > 24*time.Hour*3 {
+			// 	log.Printf("%s publishedTime is in the past 3 days %s: %s", video.Id, publishedTime, video.Snippet.Title)
+			// 	continue
+			// }
 		}
 
 		var thumbnailUrl string
@@ -482,13 +482,13 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		videoTitle := feed.Entry.Title
 		videoUrl := feed.Entry.Link.Href
 
-		publishedTime, err := time.Parse("2006-01-02T15:04:05-07:00", feed.Entry.Published)
-		if err != nil {
-			log.Printf("failed to parsed published time")
-		} else if time.Since(publishedTime) > 24*time.Hour*3 {
-			log.Printf("%s publishedTime is in the past 3 days %s: %s", videoId, publishedTime, videoTitle)
-			return
-		}
+		// publishedTime, err := time.Parse("2006-01-02T15:04:05-07:00", feed.Entry.Published)
+		// if err != nil {
+		// 	log.Printf("failed to parsed published time")
+		// } else if time.Since(publishedTime) > 24*time.Hour*3 {
+		// 	log.Printf("%s publishedTime is in the past 3 days %s: %s", videoId, publishedTime, videoTitle)
+		// 	return
+		// }
 
 		channel, err := s.mb.db.GetSubscription(channelId)
 		if err != nil {
