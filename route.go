@@ -138,7 +138,7 @@ func (s *WebhookHandler) processAPI() {
 				log.Printf("%s scheduledStartTime is in the past 3 days %s: %s", video.Id, scheduledStartTime, video.Snippet.Title)
 				continue
 			}
-			if cache != nil && time.Now().Before(parsedTime) && cache.IsScheduled {
+			if cache != nil && cache.IsScheduled {
 				log.Printf("skip scheduled %s: %s", videoId, videoTitle)
 				continue
 			}
