@@ -16,6 +16,7 @@ type Config struct {
 	ChatId              int64    `yaml:"chat_id"`
 	LogThreadId         int64    `yaml:"log_thread_id"`
 	ForwardChatId       int64    `yaml:"forward_chat_id"`
+	ForwardChatId2      int64    `yaml:"forward_chat_id_2"`
 	ForwardRegex        string   `yaml:"forward_regex"`
 	NoForwardChannelIds []string `yaml:"no_forward_channel_ids"`
 }

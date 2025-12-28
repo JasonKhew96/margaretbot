@@ -228,6 +228,7 @@ func (s *WebhookHandler) processAPI() {
 			if isForward {
 				mm.IgnoreThreadId = true
 				s.mb.bot.msgForward <- mm
+				s.mb.bot.msgForward2 <- mm
 			}
 			continue
 		}
@@ -272,6 +273,7 @@ func (s *WebhookHandler) processAPI() {
 			if isForward {
 				mm.IgnoreThreadId = true
 				s.mb.bot.msgForward <- mm
+				s.mb.bot.msgForward2 <- mm
 			}
 			continue
 		}
@@ -329,6 +331,7 @@ func (s *WebhookHandler) processAPI() {
 			if isForward {
 				mm.IgnoreThreadId = true
 				s.mb.bot.msgForward <- mm
+				s.mb.bot.msgForward2 <- mm
 			}
 		}
 	}
