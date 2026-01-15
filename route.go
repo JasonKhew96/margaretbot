@@ -126,10 +126,9 @@ func (s *WebhookHandler) processAPI() {
 
 		cache, _ := s.mb.db.GetCache(videoId)
 
+		isScheduled := false
+		isPublished := false
 		if scheduledStartTime != "" {
-			if err := s.mb.db.UpsertCache(videoId, true, false); err != nil {
-				log.Printf("failed to update cache: %v", err)
-			}
 			parsedTime, err := time.Parse("2006-01-02T15:04:05Z", scheduledStartTime)
 			if err != nil {
 				log.Printf("failed to parse scheduled start time: %v", err)
@@ -138,17 +137,19 @@ func (s *WebhookHandler) processAPI() {
 				log.Printf("%s scheduledStartTime is in the past 3 days %s: %s", video.Id, scheduledStartTime, video.Snippet.Title)
 				continue
 			}
-			if cache != nil && cache.IsScheduled {
+			if cache != nil && cache.IsScheduled && time.Now().Before(parsedTime) {
 				log.Printf("skip scheduled %s: %s", videoId, videoTitle)
 				continue
+			}
+			if time.Now().After(parsedTime) {
+				isPublished = true
+			} else {
+				isScheduled = true
 			}
 		} else if publishedTime != "" {
 			if cache != nil && cache.IsPublished {
 				log.Printf("skip published %s: %s", videoId, videoTitle)
 				continue
-			}
-			if err := s.mb.db.UpsertCache(videoId, true, true); err != nil {
-				log.Printf("failed to update cache: %v", err)
 			}
 			parsedTime, err := time.Parse("2006-01-02T15:04:05Z", publishedTime)
 			if err != nil {
@@ -156,6 +157,13 @@ func (s *WebhookHandler) processAPI() {
 			} else if time.Since(parsedTime) > 24*time.Hour*3 {
 				log.Printf("%s publishedTime is in the past 3 days %s: %s", video.Id, publishedTime, video.Snippet.Title)
 				continue
+			}
+			isPublished = true
+		}
+
+		if cache == nil || cache.IsScheduled != isScheduled || cache.IsPublished != isPublished {
+			if err := s.mb.db.UpsertCache(videoId, isScheduled, isPublished); err != nil {
+				log.Printf("failed to update cache: %v", err)
 			}
 		}
 
