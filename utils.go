@@ -108,7 +108,7 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 		}
 		quotedText.AddText("\n")
 	}
-	if len(caption.VideoDuration) > 0 {
+	if len(caption.VideoDuration) > 0 && caption.VideoDuration != "PT0S" && caption.VideoDuration != "P0D" {
 		quotedText.AddText("时长: ")
 		d, err := duration.Parse(caption.VideoDuration)
 		if err != nil {
