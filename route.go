@@ -143,10 +143,10 @@ func (s *WebhookHandler) processAPI() {
 			}
 			if time.Now().After(parsedTime) {
 				isPublished = true
-			} else {
-				isScheduled = true
 			}
-		} else if publishedTime != "" {
+			isScheduled = true
+		}
+		if publishedTime != "" {
 			if cache != nil && cache.IsPublished {
 				log.Printf("skip published %s: %s", videoId, videoTitle)
 				continue
@@ -553,8 +553,8 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			log.Printf("get cache failed: %v", err)
 			return
 		}
-		if cache != nil && cache.IsScheduled && cache.IsPublished {
-			log.Printf("already scheduled/published %s: %s", videoId, videoTitle)
+		if cache != nil && cache.IsPublished {
+			log.Printf("already published %s: %s", videoId, videoTitle)
 			return
 		}
 		if cache == nil {
