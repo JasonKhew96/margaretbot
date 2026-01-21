@@ -125,40 +125,45 @@ func (s *WebhookHandler) processAPI() {
 		publishedTime := video.Snippet.PublishedAt
 
 		cache, _ := s.mb.db.GetCache(videoId)
+		if cache != nil && cache.IsPublished {
+			log.Printf("skip published %s: %s", videoId, videoTitle)
+			continue
+		}
 
-		isScheduled := false
-		isPublished := false
+		var scheduleTime time.Time
+		var publishTime time.Time
 		if scheduledStartTime != "" {
-			parsedTime, err := time.Parse("2006-01-02T15:04:05Z", scheduledStartTime)
+			scheduleTime, err = time.Parse("2006-01-02T15:04:05Z", scheduledStartTime)
 			if err != nil {
 				log.Printf("failed to parse scheduled start time: %v", err)
 			}
-			if time.Since(parsedTime) > 24*time.Hour*3 {
-				log.Printf("%s scheduledStartTime is in the past 3 days %s: %s", video.Id, scheduledStartTime, video.Snippet.Title)
-				continue
-			}
-			if cache != nil && cache.IsScheduled && time.Now().Before(parsedTime) {
-				log.Printf("skip scheduled %s: %s", videoId, videoTitle)
-				continue
-			}
-			if time.Now().After(parsedTime) {
-				isPublished = true
-			}
-			isScheduled = true
 		}
 		if publishedTime != "" {
-			if cache != nil && cache.IsPublished {
-				log.Printf("skip published %s: %s", videoId, videoTitle)
-				continue
-			}
-			parsedTime, err := time.Parse("2006-01-02T15:04:05Z", publishedTime)
+			publishTime, err = time.Parse("2006-01-02T15:04:05Z", publishedTime)
 			if err != nil {
 				log.Printf("failed to parse published time: %v", err)
-			} else if time.Since(parsedTime) > 24*time.Hour*3 {
-				log.Printf("%s publishedTime is in the past 3 days %s: %s", video.Id, publishedTime, video.Snippet.Title)
-				continue
 			}
+		}
+
+		var latestTime time.Time
+		if scheduleTime.After(publishTime) {
+			latestTime = scheduleTime
+		} else {
+			latestTime = publishTime
+		}
+
+		isScheduled := false
+		isPublished := false
+		if latestTime.After(time.Now()) {
+			isScheduled = true
+			isPublished = false
+		} else {
+			isScheduled = true
 			isPublished = true
+		}
+
+		if cache.IsScheduled == isScheduled && cache.IsPublished == isPublished {
+			continue
 		}
 
 		if cache == nil || cache.IsScheduled != isScheduled || cache.IsPublished != isPublished {
