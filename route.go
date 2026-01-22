@@ -152,6 +152,10 @@ func (s *WebhookHandler) processAPI() {
 			latestTime = publishTime
 		}
 
+		if latestTime.Before(time.Now()) && time.Since(latestTime) > time.Duration(7*24*time.Hour) {
+			continue
+		}
+
 		isScheduled := false
 		isPublished := false
 		if latestTime.After(time.Now()) {
