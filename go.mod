@@ -3,7 +3,7 @@ module github.com/JasonKhew96/margaretbot
 go 1.25.0
 
 require (
-	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.34
+	github.com/PaulSonOfLars/gotgbot/v2 v2.0.0-rc.34.0.20260304074212-fe657d2344e0
 	github.com/aarondl/opt v0.0.0-20250607033636-982744e1bd65
 	github.com/bep/debounce v1.2.1
 	github.com/davecgh/go-spew v1.1.1
