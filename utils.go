@@ -88,7 +88,9 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 		} else {
 			loc, _ := time.LoadLocation(caption.TimeZone)
 			quotedText.AddEntity(parsedTime.In(loc).Format("02/01/2006 15:04:05 MST-07"), gotgbot.MessageEntity{
-				Type: "code",
+				DateTimeFormat: "wdT",
+				Type:           "date_time",
+				UnixTime:       parsedTime.Unix(),
 			})
 		}
 		quotedText.AddText("\n")
@@ -103,7 +105,9 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 		} else {
 			loc, _ := time.LoadLocation(caption.TimeZone)
 			quotedText.AddEntity(parsedTime.In(loc).Format("02/01/2006 15:04:05 MST-07"), gotgbot.MessageEntity{
-				Type: "code",
+				DateTimeFormat: "wdT",
+				Type:           "date_time",
+				UnixTime:       parsedTime.Unix(),
 			})
 		}
 		quotedText.AddText("\n")
