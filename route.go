@@ -192,7 +192,7 @@ func (s *WebhookHandler) processAPI() {
 
 		isForward := false
 		if s.mb.config.ForwardChatId != 0 {
-			if !slices.Contains(s.mb.config.NoForwardChannelIds, video.Snippet.ChannelId) {
+			if !slices.Contains(s.mb.config.NoForwardChannelIds, video.Snippet.ChannelId) && !strings.Contains(videoTitle, "\n") {
 				re, err := regexp.Compile(s.mb.config.ForwardRegex)
 				if err == nil {
 					if re.MatchString(videoTitle) {
