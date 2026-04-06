@@ -98,7 +98,7 @@ func (s *WebhookHandler) processAPI() {
 		videoTitle := video.Snippet.Title
 		videoUrl := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoId)
 		// thumbnailUrl := fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId)
-		videoDescription := video.Snippet.Description
+		videoDescription := strings.ToValidUTF8(video.Snippet.Description, "\ufffd")
 		if len(videoDescription) > 4096 {
 			videoDescription = videoDescription[:4095] + "…"
 		}
