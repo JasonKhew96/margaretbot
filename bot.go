@@ -197,7 +197,7 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		videoTitle := video.Snippet.Title
 		videoUrl := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoId)
 		// thumbnailUrl := fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId)
-		videoDescription := video.Snippet.Description
+		videoDescription := strings.ToValidUTF8(video.Snippet.Description, "\ufffd")
 		var allowedRegion string
 		var blockedRegion string
 		if video.ContentDetails.RegionRestriction != nil {
