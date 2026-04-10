@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/JasonKhew96/margaretbot/entity"
 	"github.com/PaulSonOfLars/gotgbot/v2"
@@ -99,8 +100,8 @@ func (s *WebhookHandler) processAPI() {
 		videoUrl := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoId)
 		// thumbnailUrl := fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId)
 		videoDescription := video.Snippet.Description
-		if len(videoDescription) > 4096 {
-			videoDescription = videoDescription[:4095] + "…"
+		if utf8.RuneCountInString(videoDescription) > 4096 {
+			videoDescription = truncateByRunes(videoDescription, 4095) + "…"
 		}
 		var allowedRegion string
 		var blockedRegion string

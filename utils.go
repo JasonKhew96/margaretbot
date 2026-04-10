@@ -206,3 +206,11 @@ func downloadToBuffer(url string) (gotgbot.InputFileOrString, error) {
 
 	return gotgbot.InputFileByReader(fn, buf), nil
 }
+
+func truncateByRunes(s string, maxRunes int) string {
+	runes := []rune(s)
+	if len(runes) <= maxRunes {
+		return s
+	}
+	return string(runes[:maxRunes])
+}

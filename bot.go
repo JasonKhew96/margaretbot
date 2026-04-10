@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/JasonKhew96/margaretbot/entityhelper"
 	"github.com/JasonKhew96/margaretbot/websub"
@@ -198,6 +199,9 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		videoUrl := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoId)
 		// thumbnailUrl := fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId)
 		videoDescription := video.Snippet.Description
+		if utf8.RuneCountInString(videoDescription) > 4096 {
+			videoDescription = truncateByRunes(videoDescription, 4095) + "…"
+		}
 		var allowedRegion string
 		var blockedRegion string
 		if video.ContentDetails.RegionRestriction != nil {
