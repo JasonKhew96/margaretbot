@@ -110,6 +110,9 @@ func loop(margaret *MargaretBot) {
 
 	var channelIds []string
 	for _, sub := range subs {
+		if len(channelIds) >= 50 {
+			break
+		}
 		channelIds = append(channelIds, sub.ChannelID)
 	}
 	channelList, err := margaret.yt.service.Channels.List([]string{"snippet"}).Id(channelIds...).MaxResults(50).Do()
