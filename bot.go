@@ -131,6 +131,15 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	text := ctx.EffectiveMessage.Text
 	channelId := text[5:]
 
+	if !strings.HasPrefix(channelId, "UC") || strings.Contains(channelId, " ") {
+		_, err := ctx.EffectiveMessage.Reply(bot, "Invalid channel ID", nil)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		return nil
+	}
+
 	newSecret := sha256.Sum256([]byte(b.mb.config.Secret))
 
 	callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", b.mb.config.ServerDomain, fmt.Sprintf("%x", newSecret), messageThreadId, channelId)
