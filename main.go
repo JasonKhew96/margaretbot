@@ -115,19 +115,23 @@ func loop(margaret *MargaretBot) {
 		}
 		channelIds = append(channelIds, sub.ChannelID)
 	}
-	channelList, err := margaret.yt.service.Channels.List([]string{"snippet"}).Id(channelIds...).MaxResults(50).Do()
-	if err != nil {
-		fmt.Printf("failed to get channels: %v\n", err)
-		time.AfterFunc(5*time.Minute, func() {
-			loop(margaret)
-		})
-		return
-	}
+	if len(channelIds) > 0 {
+		fmt.Printf("updating channel title...")
 
-	for _, channel := range channelList.Items {
-		if err = margaret.db.UpsertSubscription(channel.Id, &SubscriptionOpts{ChannelTitle: channel.Snippet.Title}); err != nil {
-			fmt.Printf("failed to upsert subscription: %v\n", err)
-			continue
+		channelList, err := margaret.yt.service.Channels.List([]string{"snippet"}).Id(channelIds...).MaxResults(50).Do()
+		if err != nil {
+			fmt.Printf("failed to get channels: %v\n", err)
+			time.AfterFunc(5*time.Minute, func() {
+				loop(margaret)
+			})
+			return
+		}
+
+		for _, channel := range channelList.Items {
+			if err = margaret.db.UpsertSubscription(channel.Id, &SubscriptionOpts{ChannelTitle: channel.Snippet.Title}); err != nil {
+				fmt.Printf("failed to upsert subscription: %v\n", err)
+				continue
+			}
 		}
 	}
 
