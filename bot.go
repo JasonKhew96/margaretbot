@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -380,7 +381,7 @@ func (b *BotHelper) handleRegexCommand(bot *gotgbot.Bot, ctx *ext.Context) error
 		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /r <channel_id> <regex>", nil)
 		return err
 	}
-	if _, err := b.mb.db.GetSubscription(s[0]); err == sql.ErrNoRows {
+	if _, err := b.mb.db.GetSubscription(s[0]); errors.Is(err, sql.ErrNoRows) {
 		_, err := ctx.EffectiveMessage.Reply(bot, "channel_id does not exists", nil)
 		return err
 	}
@@ -436,7 +437,7 @@ func (b *BotHelper) handleRegexBanCommand(bot *gotgbot.Bot, ctx *ext.Context) er
 		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /rb <channel_id> <regex>", nil)
 		return err
 	}
-	if _, err := b.mb.db.GetSubscription(s[0]); err == sql.ErrNoRows {
+	if _, err := b.mb.db.GetSubscription(s[0]); errors.Is(err, sql.ErrNoRows) {
 		_, err := ctx.EffectiveMessage.Reply(bot, "channel_id does not exists", nil)
 		return err
 	}
