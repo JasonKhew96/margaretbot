@@ -508,10 +508,15 @@ func (b *BotHelper) handleListCommand(bot *gotgbot.Bot, ctx *ext.Context) error 
 	msg := entityhelper.NewMessage()
 	for _, sub := range subscriptions {
 		quotedMsg := entityhelper.NewMessage()
-		quotedMsg.AddText("channel_id: ")
 		quotedMsg.AddEntity(sub.ChannelID, gotgbot.MessageEntity{
 			Type: "code",
 		})
+		if sub.ChannelTitle.IsValue() {
+			quotedMsg.AddText(" ")
+			quotedMsg.AddEntity(sub.ChannelTitle.GetOrZero(), gotgbot.MessageEntity{
+				Type: "code",
+			})
+		}
 		quotedMsg.AddText("\n")
 		r, ok := sub.Regex.Get()
 		if ok && r != "" {
