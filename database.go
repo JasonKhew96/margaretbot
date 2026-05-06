@@ -129,6 +129,10 @@ func (d *DbHelper) GetExpiringSubscriptions() (models.SubscriptionSlice, error) 
 	return models.Subscriptions.Query(models.SelectWhere.Subscriptions.ExpiredAt.LT(time.Now())).All(d.ctx, d.db)
 }
 
+func (d *DbHelper) GetTitleNullSubscriptions() (models.SubscriptionSlice, error) {
+	return models.Subscriptions.Query(models.SelectWhere.Subscriptions.ChannelTitle.IsNull()).All(d.ctx, d.db)
+}
+
 func (d *DbHelper) UpsertCache(videoId string, isScheduled, isPublished bool) error {
 	_, err := models.Caches.Insert(&models.CacheSetter{
 		VideoID:     omit.From(videoId),
