@@ -512,7 +512,7 @@ func (b *BotHelper) handleListCommand(bot *gotgbot.Bot, ctx *ext.Context) error 
 			Type: "code",
 		})
 		if sub.ChannelTitle.IsValue() {
-			quotedMsg.AddText(" ")
+			quotedMsg.AddText(" - ")
 			quotedMsg.AddEntity(sub.ChannelTitle.GetOrZero(), gotgbot.MessageEntity{
 				Type: "code",
 			})
