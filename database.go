@@ -36,6 +36,24 @@ CREATE TABLE IF NOT EXISTS cache (
 	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS forward (
+	chat_id INTEGER PRIMARY KEY,
+	regex TEXT,
+	regex_ban TEXT,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS forward_no (
+	id INTEGER PRIMARY KEY,
+	chat_id INTEGER NOT NULL,
+	channel_id TEXT NOT NULL,
+	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+	updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS forward_no_idx ON forward_no (chat_id, channel_id);
+
 */
 
 type DbHelper struct {
@@ -149,5 +167,52 @@ func (d *DbHelper) GetCache(videoId string) (*models.Cache, error) {
 
 func (d *DbHelper) DeleteCache() error {
 	_, err := models.Caches.Delete(models.DeleteWhere.Caches.CreatedAt.LT(time.Now().Add(-time.Hour*24*7))).All(d.ctx, d.db)
+	return err
+}
+
+func (d *DbHelper) GetForwards() (models.ForwardSlice, error) {
+	return models.Forwards.Query().All(d.ctx, d.db)
+}
+
+func (d *DbHelper) GetForward(chatId int64) (*models.Forward, error) {
+	return models.Forwards.Query(models.SelectWhere.Forwards.ChatID.EQ(chatId)).One(d.ctx, d.db)
+}
+
+func (d *DbHelper) UpsertForward(chatId int64, regex string, banRegex string) error {
+	_, err := models.Forwards.Insert(&models.ForwardSetter{
+		ChatID:    omit.From(chatId),
+		Regex:     omitnull.From(regex),
+		RegexBan:  omitnull.From(banRegex),
+		UpdatedAt: omit.From(time.Now()),
+	}, im.OnConflict("chat_id").DoUpdate(im.SetExcluded("regex", "regex_ban"))).Exec(d.ctx, d.db)
+	return err
+}
+
+func (d *DbHelper) DeleteForward(chatId int64) error {
+	if _, err := models.Forwards.Delete(models.DeleteWhere.Forwards.ChatID.EQ(chatId)).All(d.ctx, d.db); err != nil {
+		return err
+	}
+	_, err := models.ForwardNos.Delete(models.DeleteWhere.ForwardNos.ChatID.EQ(chatId)).All(d.ctx, d.db)
+	return err
+}
+
+func (d *DbHelper) GetForwardNos() (models.ForwardNoSlice, error) {
+	return models.ForwardNos.Query().All(d.ctx, d.db)
+}
+
+func (d *DbHelper) IsForwardNo(chatId int64, channelId string) (bool, error) {
+	return models.ForwardNos.Query(models.SelectWhere.ForwardNos.ChatID.EQ(chatId), models.SelectWhere.ForwardNos.ChannelID.EQ(channelId)).Exists(d.ctx, d.db)
+}
+
+func (d *DbHelper) UpsertForwardNo(chatId int64, channelId string) error {
+	_, err := models.ForwardNos.Insert(&models.ForwardNoSetter{
+		ChatID:    omit.From(chatId),
+		ChannelID: omit.From(channelId),
+	}).Exec(d.ctx, d.db)
+	return err
+}
+
+func (d *DbHelper) DeleteForwardNo(chatId int64, channelId string) error {
+	_, err := models.ForwardNos.Delete(models.DeleteWhere.ForwardNos.ChatID.EQ(chatId), models.DeleteWhere.ForwardNos.ChannelID.EQ(channelId)).All(d.ctx, d.db)
 	return err
 }

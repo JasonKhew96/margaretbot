@@ -10,7 +10,6 @@ import (
 	"log"
 	"net/http"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -191,22 +190,9 @@ func (s *WebhookHandler) processAPI() {
 			timezone = "UTC"
 		}
 
-		isForward := false
-		if s.mb.config.ForwardChatId != 0 {
-			if !slices.Contains(s.mb.config.NoForwardChannelIds, video.Snippet.ChannelId) && !strings.Contains(videoTitle, "\n") {
-				re, err := regexp.Compile(s.mb.config.ForwardRegex)
-				if err == nil {
-					if re.MatchString(videoTitle) {
-						isForward = true
-					} else {
-						log.Printf("%s does not match forward regex: %s", video.Id, video.Snippet.Title)
-					}
-				} else {
-					log.Printf("failed to compile regex: %v", err)
-				}
-			} else {
-				log.Printf("%s %s is from no forward channel: %s", video.Snippet.ChannelId, video.Id, video.Snippet.Title)
-			}
+		forwards, err := s.mb.db.GetForwards()
+		if err != nil {
+			log.Printf("error GetForwards: %+v", err)
 		}
 
 		c := &Caption{
@@ -243,10 +229,43 @@ func (s *WebhookHandler) processAPI() {
 				First: &msg,
 			}
 			s.mb.bot.msgChannel <- mm
-			if isForward {
+			if forwards != nil {
 				mm.IgnoreThreadId = true
-				s.mb.bot.msgForward <- mm
-				s.mb.bot.msgForward2 <- mm
+				for _, forward := range forwards {
+					if ok, err := s.mb.db.IsForwardNo(forward.ChatID, video.Snippet.ChannelId); err != nil && !errors.Is(err, sql.ErrNoRows) {
+						log.Printf("error IsForwardNo: %+v", err)
+						continue
+					} else if ok {
+						log.Printf("%d %s is no forward", forward.ChatID, video.Snippet.ChannelId)
+						continue
+					}
+					if forward.RegexBan.IsValue() {
+						re, err := regexp.Compile(forward.RegexBan.GetOrZero())
+						if err != nil {
+							log.Printf("failed to compile regex: %v", err)
+							continue
+						}
+						if re.MatchString(videoTitle) {
+							log.Printf("%s match forward regexBan: %s", video.Id, video.Snippet.Title)
+							continue
+						}
+					}
+					if forward.Regex.IsValue() {
+						re, err := regexp.Compile(forward.Regex.GetOrZero())
+						if err != nil {
+							log.Printf("failed to compile regex: %v", err)
+							continue
+						}
+						if re.MatchString(videoTitle) {
+							log.Printf("%s match forward regex: %s", video.Id, video.Snippet.Title)
+							if msgForward, ok := s.mb.bot.msgForwards[forward.ChatID]; !ok {
+								log.Printf("error msgForwards map")
+							} else {
+								msgForward <- mm
+							}
+						}
+					}
+				}
 			}
 			continue
 		}
@@ -288,10 +307,43 @@ func (s *WebhookHandler) processAPI() {
 				},
 			}
 			s.mb.bot.msgChannel <- mm
-			if isForward {
+			if forwards != nil {
 				mm.IgnoreThreadId = true
-				s.mb.bot.msgForward <- mm
-				s.mb.bot.msgForward2 <- mm
+				for _, forward := range forwards {
+					if ok, err := s.mb.db.IsForwardNo(forward.ChatID, video.Snippet.ChannelId); err != nil && !errors.Is(err, sql.ErrNoRows) {
+						log.Printf("error IsForwardNo: %+v", err)
+						continue
+					} else if ok {
+						log.Printf("%d %s is no forward", forward.ChatID, video.Snippet.ChannelId)
+						continue
+					}
+					if forward.RegexBan.IsValue() {
+						re, err := regexp.Compile(forward.RegexBan.GetOrZero())
+						if err != nil {
+							log.Printf("failed to compile regex: %v", err)
+							continue
+						}
+						if re.MatchString(videoTitle) {
+							log.Printf("%s match forward regexBan: %s", video.Id, video.Snippet.Title)
+							continue
+						}
+					}
+					if forward.Regex.IsValue() {
+						re, err := regexp.Compile(forward.Regex.GetOrZero())
+						if err != nil {
+							log.Printf("failed to compile regex: %v", err)
+							continue
+						}
+						if re.MatchString(videoTitle) {
+							log.Printf("%s match forward regex: %s", video.Id, video.Snippet.Title)
+							if msgForward, ok := s.mb.bot.msgForwards[forward.ChatID]; !ok {
+								log.Printf("error msgForwards map")
+							} else {
+								msgForward <- mm
+							}
+						}
+					}
+				}
 			}
 			continue
 		}
@@ -346,10 +398,43 @@ func (s *WebhookHandler) processAPI() {
 				},
 			}
 			s.mb.bot.msgChannel <- mm
-			if isForward {
+			if forwards != nil {
 				mm.IgnoreThreadId = true
-				s.mb.bot.msgForward <- mm
-				s.mb.bot.msgForward2 <- mm
+				for _, forward := range forwards {
+					if ok, err := s.mb.db.IsForwardNo(forward.ChatID, video.Snippet.ChannelId); err != nil && !errors.Is(err, sql.ErrNoRows) {
+						log.Printf("error IsForwardNo: %+v", err)
+						continue
+					} else if ok {
+						log.Printf("%d %s is no forward", forward.ChatID, video.Snippet.ChannelId)
+						continue
+					}
+					if forward.RegexBan.IsValue() {
+						re, err := regexp.Compile(forward.RegexBan.GetOrZero())
+						if err != nil {
+							log.Printf("failed to compile regex: %v", err)
+							continue
+						}
+						if re.MatchString(videoTitle) {
+							log.Printf("%s match forward regexBan: %s", video.Id, video.Snippet.Title)
+							continue
+						}
+					}
+					if forward.Regex.IsValue() {
+						re, err := regexp.Compile(forward.Regex.GetOrZero())
+						if err != nil {
+							log.Printf("failed to compile regex: %v", err)
+							continue
+						}
+						if re.MatchString(videoTitle) {
+							log.Printf("%s match forward regex: %s", video.Id, video.Snippet.Title)
+							if msgForward, ok := s.mb.bot.msgForwards[forward.ChatID]; !ok {
+								log.Printf("error msgForwards map")
+							} else {
+								msgForward <- mm
+							}
+						}
+					}
+				}
 			}
 		}
 	}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"golang.org/x/time/rate"
@@ -109,8 +110,15 @@ func (b *BotHelper) work(chatId int64, limiter *rate.Limiter, multiMsg MultiMess
 	}
 }
 
-func (b *BotHelper) telegramWorker(chatId int64, limiter *rate.Limiter, multiMsgs <-chan MultiMessage) {
-	for multiMsg := range multiMsgs {
+func (b *BotHelper) telegramWorker(chatId int64, multiMsgs chan MultiMessage) {
+	log.Printf("%d worker started...", chatId)
+	limiter := rate.NewLimiter(rate.Every(time.Minute/20), 1)
+	for {
+		multiMsg, ok := <-multiMsgs
+		if !ok {
+			log.Printf("%d worker removed...", chatId)
+			return
+		}
 		b.work(chatId, limiter, multiMsg)
 	}
 }

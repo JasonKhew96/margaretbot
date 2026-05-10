@@ -12,6 +12,7 @@ require (
 	github.com/jaswdr/faker/v2 v2.9.1
 	github.com/sosodev/duration v1.4.0
 	github.com/stephenafamo/bob v0.42.0
+	github.com/stephenafamo/scan v0.7.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/time v0.15.0
 	google.golang.org/api v0.274.0
@@ -36,7 +37,6 @@ require (
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/qdm12/reprint v0.0.0-20200326205758-722754a53494 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
-	github.com/stephenafamo/scan v0.7.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0 // indirect
 	go.opentelemetry.io/otel v1.43.0 // indirect

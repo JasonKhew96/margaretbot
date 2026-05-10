@@ -7,18 +7,18 @@ import (
 )
 
 type Config struct {
-	BotApiUrl           string   `yaml:"bot_api_url"`
-	BotToken            string   `yaml:"bot_token"`
-	ServerDomain        string   `yaml:"server_domain"`
-	Port                int      `yaml:"port"`
-	Secret              string   `yaml:"secret"`
-	OwnerId             int64    `yaml:"owner_id"`
-	ChatId              int64    `yaml:"chat_id"`
-	LogThreadId         int64    `yaml:"log_thread_id"`
-	ForwardChatId       int64    `yaml:"forward_chat_id"`
-	ForwardChatId2      int64    `yaml:"forward_chat_id_2"`
-	ForwardRegex        string   `yaml:"forward_regex"`
-	NoForwardChannelIds []string `yaml:"no_forward_channel_ids"`
+	BotApiUrl    string `yaml:"bot_api_url"`
+	BotToken     string `yaml:"bot_token"`
+	ServerDomain string `yaml:"server_domain"`
+	Port         int    `yaml:"port"`
+	Secret       string `yaml:"secret"`
+	OwnerId      int64  `yaml:"owner_id"`
+	ChatId       int64  `yaml:"chat_id"`
+	LogThreadId  int64  `yaml:"log_thread_id"`
+	// ForwardChatId       int64    `yaml:"forward_chat_id"`
+	// ForwardChatId2      int64    `yaml:"forward_chat_id_2"`
+	// ForwardRegex        string   `yaml:"forward_regex"`
+	// NoForwardChannelIds []string `yaml:"no_forward_channel_ids"`
 }
 
 func parseConfig() (*Config, error) {

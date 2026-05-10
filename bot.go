@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -19,7 +20,6 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2/ext"
 	"github.com/PaulSonOfLars/gotgbot/v2/ext/handlers"
 	"github.com/google/shlex"
-	"golang.org/x/time/rate"
 )
 
 type BotHelper struct {
@@ -27,9 +27,9 @@ type BotHelper struct {
 
 	bot *gotgbot.Bot
 
-	msgChannel  chan MultiMessage
-	msgForward  chan MultiMessage
-	msgForward2 chan MultiMessage
+	msgChannel chan MultiMessage
+
+	msgForwards map[int64]chan MultiMessage
 
 	ctx context.Context
 }
@@ -60,19 +60,24 @@ func NewBot(mb *MargaretBot) error {
 		return err
 	}
 
-	limiterChannel := rate.NewLimiter(rate.Every(time.Minute/20), 1)
-	limiterForward := rate.NewLimiter(rate.Every(time.Minute/20), 1)
-	limiterForward2 := rate.NewLimiter(rate.Every(time.Minute/20), 1)
+	msgForwards := make(map[int64]chan MultiMessage)
 
 	b := &BotHelper{
 		mb:          mb,
 		bot:         bot,
 		msgChannel:  make(chan MultiMessage),
-		msgForward:  make(chan MultiMessage),
-		msgForward2: make(chan MultiMessage),
+		msgForwards: msgForwards,
 		ctx:         context.Background(),
 	}
 	mb.bot = b
+
+	forwards, err := mb.db.GetForwards()
+	if err == nil && forwards != nil {
+		for _, forward := range forwards {
+			msgForwards[forward.ChatID] = make(chan MultiMessage)
+			go b.telegramWorker(forward.ChatID, msgForwards[forward.ChatID])
+		}
+	}
 
 	dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{
 		Error: func(b *gotgbot.Bot, ctx *ext.Context, err error) ext.DispatcherAction {
@@ -89,6 +94,14 @@ func NewBot(mb *MargaretBot) error {
 	dispatcher.AddHandler(NewCommand("debug", b.handleDebugCommand))
 	dispatcher.AddHandler(NewCommand("l", b.handleListCommand))
 	dispatcher.AddHandler(NewCommand("reload", b.handleReloadCommand))
+	dispatcher.AddHandler(NewCommand("lf", b.handleListForwardCommand))
+	dispatcher.AddHandler(NewCommand("f", b.handleForwardCommand))
+	dispatcher.AddHandler(NewCommand("rf", b.handleRemoveForwardCommand))
+	// dispatcher.AddHandler(NewCommand("sfr", b.handleSetForwardRegexCommand))
+	// dispatcher.AddHandler(NewCommand("sfrb", b.handleSetForwardRegexBanCommand))
+	dispatcher.AddHandler(NewCommand("lfn", b.handleListForwardNoCommand))
+	// dispatcher.AddHandler(NewCommand("sfn", b.handleSetForwardNoCommand))
+	// dispatcher.AddHandler(NewCommand("rfn", b.handleSetForwardNoCommand))
 
 	err = updater.StartPolling(bot, &ext.PollingOpts{
 		DropPendingUpdates: false,
@@ -105,9 +118,7 @@ func NewBot(mb *MargaretBot) error {
 		return err
 	}
 
-	go b.telegramWorker(mb.config.ChatId, limiterChannel, b.msgChannel)
-	go b.telegramWorker(mb.config.ForwardChatId, limiterForward, b.msgForward)
-	go b.telegramWorker(mb.config.ForwardChatId2, limiterForward2, b.msgForward2)
+	go b.telegramWorker(mb.config.ChatId, b.msgChannel)
 
 	log.Printf("Bot %s started", bot.Username)
 
@@ -586,6 +597,177 @@ func (b *BotHelper) handleReloadCommand(bot *gotgbot.Bot, ctx *ext.Context) erro
 
 	var err error
 	b.mb.config, err = parseConfig()
+
+	return err
+}
+
+func (b *BotHelper) handleListForwardCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+	if !ctx.EffectiveSender.IsUser() {
+		return nil
+	}
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
+		return nil
+	}
+
+	forwards, err := b.mb.db.GetForwards()
+	if errors.Is(err, sql.ErrNoRows) {
+		_, err := ctx.EffectiveMessage.Reply(bot, "There is no forward(s)", nil)
+		return err
+	}
+
+	quotedMsg := entityhelper.NewMessage()
+	for _, forward := range forwards {
+		quotedMsg.AddEntity(strconv.FormatInt(forward.ChatID, 10), gotgbot.MessageEntity{
+			Type: "code",
+		})
+		if forward.Regex.IsValue() {
+			quotedMsg.AddText("\nregex: ")
+			quotedMsg.AddEntity(forward.Regex.GetOrZero(), gotgbot.MessageEntity{
+				Type: "code",
+			})
+		}
+		if forward.RegexBan.IsValue() {
+			quotedMsg.AddText("\nregexBan: ")
+			quotedMsg.AddEntity(forward.RegexBan.GetOrZero(), gotgbot.MessageEntity{
+				Type: "code",
+			})
+		}
+		quotedMsg.AddText("\n")
+	}
+	msg := entityhelper.NewMessage()
+	msg.AddNestedEntity(quotedMsg, gotgbot.MessageEntity{
+		Type: "expandable_blockquote",
+	})
+
+	_, err = ctx.EffectiveMessage.Reply(bot, msg.GetText(), &gotgbot.SendMessageOpts{
+		Entities: msg.GetEntities(),
+	})
+
+	return err
+}
+
+func (b *BotHelper) handleForwardCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+	if !ctx.EffectiveSender.IsUser() {
+		return nil
+	}
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
+		return nil
+	}
+
+	text := ctx.EffectiveMessage.Text
+	if len(text) <= 3 {
+		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /f <chat_id>", nil)
+		return err
+	}
+
+	s, err := shlex.Split(text[3:])
+	if err != nil {
+		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /f <chat_id> <regex> <regex_ban>", nil)
+		return err
+	}
+
+	chatId, err := strconv.ParseInt(s[0], 10, 64)
+	if err != nil {
+		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /f <chat_id>", nil)
+		return err
+	}
+
+	forward, err := b.mb.db.GetForward(chatId)
+	if !errors.Is(err, sql.ErrNoRows) {
+		_, err := ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("%d is already subscribed to forward", forward.ChatID), nil)
+		return err
+	}
+
+	regex := ""
+	regexBan := ""
+	if len(s) > 1 {
+		regex = s[1]
+	}
+	if len(s) > 2 {
+		regexBan = s[2]
+	}
+	if err := b.mb.db.UpsertForward(chatId, regex, regexBan); err != nil {
+		_, err := ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("%d failed to subscribe to forward", forward.ChatID), nil)
+		return err
+	}
+
+	b.msgForwards[chatId] = make(chan MultiMessage)
+	go b.telegramWorker(chatId, b.msgForwards[chatId])
+
+	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("%d subscribe to forward successful", forward.ChatID), nil)
+
+	return err
+}
+
+func (b *BotHelper) handleRemoveForwardCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+	if !ctx.EffectiveSender.IsUser() {
+		return nil
+	}
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
+		return nil
+	}
+
+	text := ctx.EffectiveMessage.Text
+	if len(text) <= 4 {
+		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /rf <chat_id>", nil)
+		return err
+	}
+
+	chatId, err := strconv.ParseInt(text[4:], 10, 64)
+	if err != nil {
+		_, err := ctx.EffectiveMessage.Reply(bot, "Usage: /rf <chat_id>", nil)
+		return err
+	}
+
+	if err := b.mb.db.DeleteForward(chatId); err != nil {
+		_, err := ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("%d failed unsubscribe forward", chatId), nil)
+		return err
+	}
+
+	forwardChannel, ok := b.msgForwards[chatId]
+	if ok {
+		close(forwardChannel)
+		delete(b.msgForwards, chatId)
+	}
+
+	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("%d unsubscribe to forward successful", chatId), nil)
+
+	return err
+}
+
+func (b *BotHelper) handleListForwardNoCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
+	if !ctx.EffectiveSender.IsUser() {
+		return nil
+	}
+	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
+		return nil
+	}
+
+	forwards, err := b.mb.db.GetForwardNos()
+	if errors.Is(err, sql.ErrNoRows) {
+		_, err := ctx.EffectiveMessage.Reply(bot, "There is no noforward(s)", nil)
+		return err
+	}
+
+	quotedMsg := entityhelper.NewMessage()
+	for _, forward := range forwards {
+		quotedMsg.AddEntity(strconv.FormatInt(forward.ChatID, 10), gotgbot.MessageEntity{
+			Type: "code",
+		})
+		quotedMsg.AddText(" ")
+		quotedMsg.AddEntity(forward.ChannelID, gotgbot.MessageEntity{
+			Type: "code",
+		})
+		quotedMsg.AddText("\n")
+	}
+	msg := entityhelper.NewMessage()
+	msg.AddNestedEntity(quotedMsg, gotgbot.MessageEntity{
+		Type: "expandable_blockquote",
+	})
+
+	_, err = ctx.EffectiveMessage.Reply(bot, msg.GetText(), &gotgbot.SendMessageOpts{
+		Entities: msg.GetEntities(),
+	})
 
 	return err
 }
