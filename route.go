@@ -46,7 +46,7 @@ func NewWebhookHandler(mb *MargaretBot) {
 	mb.wh = &WebhookHandler{
 		mb:        mb,
 		queue:     make(map[string]Queue),
-		debounced: debounce.New(1500 * time.Millisecond),
+		debounced: debounce.New(3000 * time.Millisecond),
 	}
 }
 
