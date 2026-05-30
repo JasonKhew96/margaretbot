@@ -210,7 +210,7 @@ func (s *WebhookHandler) processAPI() {
 		}
 		caption, entities := BuildCaption(c)
 
-		if len(caption) < 1024 {
+		if getUtf16Len(caption) < 1024 {
 			msg := Message{
 				text:            caption,
 				videoUrl:        videoUrl,
@@ -272,7 +272,7 @@ func (s *WebhookHandler) processAPI() {
 
 		c.VideoDescription = ""
 		caption, entities = BuildCaption(c)
-		if len(caption) < 1024 {
+		if getUtf16Len(caption) < 1024 {
 			msg := Message{
 				text:            caption,
 				videoUrl:        videoUrl,
@@ -351,7 +351,7 @@ func (s *WebhookHandler) processAPI() {
 		c.AllowedRegion = ""
 		c.BlockedRegion = ""
 		caption, entities = BuildCaption(c)
-		if len(caption) < 1024 {
+		if getUtf16Len(caption) < 1024 {
 			msg := Message{
 				text:            caption,
 				videoUrl:        videoUrl,

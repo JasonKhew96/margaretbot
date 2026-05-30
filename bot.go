@@ -274,7 +274,7 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 			TimeZone:           timezone,
 		})
 
-		if len(caption) < 1024 {
+		if getUtf16Len(caption) < 1024 {
 			msg := Message{
 				text:            caption,
 				videoUrl:        videoUrl,
