@@ -63,7 +63,7 @@ func (s *WebhookHandler) processAPI() {
 		}
 	}
 
-	videoList, err := s.mb.yt.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
+	videoList, err := s.mb.yt.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails", "localizations"}).Id(videoIdList...).Do()
 	if err != nil {
 		log.Printf("failed to get video list: %v", err)
 
@@ -207,6 +207,7 @@ func (s *WebhookHandler) processAPI() {
 			ScheduledStartTime: scheduledStartTime,
 			PublishedTime:      publishedTime,
 			TimeZone:           timezone,
+			Localization:       ytGetPreferedLocale(video.Localizations),
 		}
 		caption, entities := BuildCaption(c)
 
@@ -306,6 +307,27 @@ func (s *WebhookHandler) processAPI() {
 					},
 				},
 			}
+			if c.Localization != nil && len(c.Localization.Description) > 0 {
+				videoDescriptionLocale := c.Localization.Description
+				if utf8.RuneCountInString(videoDescriptionLocale) > 4096 {
+					videoDescriptionLocale = truncateByRunes(videoDescriptionLocale, 4095) + "…"
+				}
+				mm.Last = append(mm.Last, Message{
+					text:            videoDescriptionLocale,
+					messageThreadId: q.threadId,
+					entities: []gotgbot.MessageEntity{
+						{
+							Type:   "expandable_blockquote",
+							Offset: 0,
+							Length: getUtf16Len(videoDescriptionLocale),
+						},
+					},
+					linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+						IsDisabled: true,
+					},
+				})
+			}
+
 			s.mb.bot.msgChannel <- mm
 			if forwards != nil {
 				mm.IgnoreThreadId = true

@@ -11,6 +11,7 @@ import (
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/friendsofgo/errors"
 	"github.com/sosodev/duration"
+	"google.golang.org/api/youtube/v3"
 )
 
 var allMdV2 = []string{"_", "*", "[", "]", "(", ")", "~", "`", ">", "#", "+", "-", "=", "|", "{", "}", ".", "!"}
@@ -53,6 +54,7 @@ type Caption struct {
 	ScheduledStartTime string
 	PublishedTime      string
 	TimeZone           string
+	Localization       *youtube.VideoLocalization
 }
 
 func getUtf16Len(s string) int64 {
@@ -68,6 +70,13 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 			Url:  caption.VideoUrl,
 		})
 		msg.AddText("\n")
+	}
+	if caption.Localization != nil && len(caption.Localization.Title) > 0 {
+		quotedText := entityhelper.NewMessage()
+		quotedText.AddText(caption.Localization.Title)
+		msg.AddNestedEntity(quotedText, gotgbot.MessageEntity{
+			Type: "blockquote",
+		})
 	}
 	quotedText := entityhelper.NewMessage()
 	if caption.ChannelName != "" {
@@ -148,6 +157,11 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 			Type: "expandable_blockquote",
 		})
 	}
+	if caption.Localization != nil && len(caption.Localization.Description) > 0 {
+		msg.AddEntity(caption.Localization.Description, gotgbot.MessageEntity{
+			Type: "expandable_blockquote",
+		})
+	}
 
 	return msg.GetText(), msg.GetEntities()
 }
@@ -221,4 +235,16 @@ func mtprotoId2chatId(mtprotoId int64) int64 {
 
 func chatId2mtprotoId(chatId int64) int64 {
 	return -chatId - 1000000000000
+}
+
+func ytGetPreferedLocale(l map[string]youtube.VideoLocalization) *youtube.VideoLocalization {
+	preferedLocale := []string{"zh-Hant", "zh-Hans", "zh-TW", "zh-HK", "zh-CN", "zh"}
+
+	for _, locale := range preferedLocale {
+		if v, ok := l[locale]; ok {
+			return &v
+		}
+	}
+
+	return nil
 }
