@@ -238,7 +238,7 @@ func chatId2mtprotoId(chatId int64) int64 {
 }
 
 func ytGetPreferedLocale(l map[string]youtube.VideoLocalization) *youtube.VideoLocalization {
-	preferedLocale := []string{"zh-Hant", "zh-Hans", "zh-TW", "zh-HK", "zh-CN", "zh"}
+	preferedLocale := []string{"zh-Hant", "zh-TW", "zh-HK", "zh-Hans", "zh-CN", "zh"}
 
 	for _, locale := range preferedLocale {
 		if v, ok := l[locale]; ok {
