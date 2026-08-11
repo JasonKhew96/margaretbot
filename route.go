@@ -207,7 +207,7 @@ func (s *WebhookHandler) processAPI() {
 			ScheduledStartTime: scheduledStartTime,
 			PublishedTime:      publishedTime,
 			TimeZone:           timezone,
-			Localization:       ytGetPreferedLocale(video.Localizations),
+			Localization:       ytGetPreferedLocale(video.Localizations, video.Snippet.DefaultLanguage),
 		}
 		caption, entities := BuildCaption(c)
 
