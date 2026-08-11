@@ -214,3 +214,11 @@ func truncateByRunes(s string, maxRunes int) string {
 	}
 	return string(runes[:maxRunes])
 }
+
+func mtprotoId2chatId(mtprotoId int64) int64 {
+	return -(1000000000000 + mtprotoId)
+}
+
+func chatId2mtprotoId(chatId int64) int64 {
+	return -chatId - 1000000000000
+}

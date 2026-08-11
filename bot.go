@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/JasonKhew96/margaretbot/entityhelper"
 	"github.com/JasonKhew96/margaretbot/websub"
@@ -138,7 +137,7 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
 		return nil
 	}
-	messageThreadId := ctx.EffectiveMessage.MessageThreadId
+	messageThreadId := int64(0)
 	text := ctx.EffectiveMessage.Text
 	channelId := text[5:]
 
@@ -151,19 +150,37 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		return nil
 	}
 
+	mtprotoId := chatId2mtprotoId(b.mb.config.ChatId)
+
+	sub, err := b.mb.db.GetSubscription(channelId)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		topic, err := bot.CreateForumTopic(b.mb.config.ChatId, "Untitled", nil)
+		if err != nil {
+			return err
+		}
+		messageThreadId = topic.MessageThreadId
+
+		_, err = bot.CloseForumTopic(b.mb.config.ChatId, topic.MessageThreadId, nil)
+		if err != nil {
+			log.Println(err)
+		}
+	} else if sub != nil {
+		topicLink := fmt.Sprintf("https://t.me/c/%d/%d", mtprotoId, sub.ThreadID)
+		_, err := ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("Already subscribed: %s", topicLink), nil)
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+		return nil
+	}
+
 	newSecret := sha256.Sum256([]byte(b.mb.config.Secret))
 
 	callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", b.mb.config.ServerDomain, fmt.Sprintf("%x", newSecret), messageThreadId, channelId)
 	topicUrl := fmt.Sprintf("https://www.youtube.com/xml/feeds/videos.xml?channel_id=%s", channelId)
-
-	// subs, err := b.db.GetSubscription(channelId)
-	// if err != nil && !errors.Is(err, sql.ErrNoRows) {
-	// 	return err
-	// }
-	// if subs != nil {
-	// TODO
-	// ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("already subscribed at https://"))
-	// }
 
 	if err := b.mb.ws.Subscribe(websub.ModeSubscribe, callbackUrl, topicUrl, &websub.SubscribeOpts{
 		LeaseSeconds: 86400,
@@ -178,170 +195,197 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 
 	log.Printf("subscribing to %s...", channelId)
 
+	channels, err := b.mb.yt.service.Channels.List([]string{"snippet"}).Do()
+	if err != nil {
+		return err
+	}
+	if channels.PageInfo.TotalResults > 0 || len(channels.Items) <= 0 {
+		return nil
+	}
+
+	channelTitle := channels.Items[0].Snippet.Title
+
+	err = b.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
+		ChannelTitle: channelTitle,
+	})
+
+	topicLink := fmt.Sprintf("https://t.me/c/%d/%d", mtprotoId, messageThreadId)
+	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("subscribing to %s: %s", channelTitle, topicLink), nil)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return nil
+
 	// swap prefix UC to UU for default playlist
 	// UCuAXFkgsw1L7xaCfnd5JJOw channel id
 	// UUuAXFkgsw1L7xaCfnd5JJOw default playlist id a.k.a. "uploads"
 
-	playlistId := "UU" + channelId[2:]
+	/*
+	   playlistId := "UU" + channelId[2:]
 
-	playlistItems, err := b.mb.yt.service.PlaylistItems.List([]string{"snippet", "contentDetails"}).PlaylistId(playlistId).MaxResults(8).Do()
-	if err != nil {
-		return err
-	}
+	   playlistItems, err := b.mb.yt.service.PlaylistItems.List([]string{"snippet", "contentDetails"}).PlaylistId(playlistId).MaxResults(8).Do()
 
-	var videoIdList []string
+	   	if err != nil {
+	   		return err
+	   	}
 
-	for i := len(playlistItems.Items) - 1; i >= 0; i-- {
-		videoId := playlistItems.Items[i].ContentDetails.VideoId
-		isShort, err := b.mb.yt.IsShort(videoId, playlistItems.Items[i].Snippet.Title)
-		if err != nil {
-			log.Printf("failed to check if video is short: %v", err)
-		}
-		if isShort {
-			log.Printf("video is a short: %s", videoId)
-			continue
-		}
-		videoIdList = append(videoIdList, videoId)
+	   var videoIdList []string
 
-		if err := b.mb.db.UpsertCache(videoId, true, true); err != nil {
-			log.Printf("unable to insert cache: %v", err)
-			continue
-		}
-	}
+	   	for i := len(playlistItems.Items) - 1; i >= 0; i-- {
+	   		videoId := playlistItems.Items[i].ContentDetails.VideoId
+	   		isShort, err := b.mb.yt.IsShort(videoId, playlistItems.Items[i].Snippet.Title)
+	   		if err != nil {
+	   			log.Printf("failed to check if video is short: %v", err)
+	   		}
+	   		if isShort {
+	   			log.Printf("video is a short: %s", videoId)
+	   			continue
+	   		}
+	   		videoIdList = append(videoIdList, videoId)
 
-	videoList, err := b.mb.yt.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
-	if err != nil {
-		log.Printf("failed to get video list: %v", err)
-		return err
-	}
-	for _, video := range videoList.Items {
-		videoId := video.Id
+	   		if err := b.mb.db.UpsertCache(videoId, true, true); err != nil {
+	   			log.Printf("unable to insert cache: %v", err)
+	   			continue
+	   		}
+	   	}
 
-		videoTitle := video.Snippet.Title
-		videoUrl := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoId)
-		// thumbnailUrl := fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId)
-		videoDescription := video.Snippet.Description
-		if utf8.RuneCountInString(videoDescription) > 4096 {
-			videoDescription = truncateByRunes(videoDescription, 4095) + "…"
-		}
-		var allowedRegion string
-		var blockedRegion string
-		if video.ContentDetails.RegionRestriction != nil {
-			if len(video.ContentDetails.RegionRestriction.Blocked) >= 249 {
-				continue
-			}
+	   videoList, err := b.mb.yt.service.Videos.List([]string{"snippet", "contentDetails", "liveStreamingDetails"}).Id(videoIdList...).Do()
 
-			if video.ContentDetails.RegionRestriction.Allowed != nil {
-				allowedRegion = strings.Join(video.ContentDetails.RegionRestriction.Allowed, ", ")
-			}
-			if video.ContentDetails.RegionRestriction.Blocked != nil {
-				blockedRegion = strings.Join(video.ContentDetails.RegionRestriction.Blocked, ", ")
-			}
-		}
-		var scheduledStartTime string
-		if video.LiveStreamingDetails != nil && video.LiveStreamingDetails.ScheduledStartTime != "" {
-			scheduledStartTime = video.LiveStreamingDetails.ScheduledStartTime
-		}
-		channelName := video.Snippet.ChannelTitle
-		publishedTime := video.Snippet.PublishedAt
+	   	if err != nil {
+	   		log.Printf("failed to get video list: %v", err)
+	   		return err
+	   	}
 
-		var thumbnailUrl string
-		if video.Snippet.Thumbnails != nil && video.Snippet.Thumbnails.Maxres != nil {
-			thumbnailUrl = video.Snippet.Thumbnails.Maxres.Url
-		}
+	   	for _, video := range videoList.Items {
+	   		videoId := video.Id
 
-		var timezone string
-		if video.Snippet.DefaultLanguage != "" {
-			timezone = GetTimeZone(video.Snippet.DefaultLanguage)
-		} else if video.Snippet.DefaultAudioLanguage != "" {
-			timezone = GetTimeZone(video.Snippet.DefaultAudioLanguage)
-		} else {
-			timezone = "UTC"
-		}
+	   		videoTitle := video.Snippet.Title
+	   		videoUrl := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoId)
+	   		// thumbnailUrl := fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId)
+	   		videoDescription := video.Snippet.Description
+	   		if utf8.RuneCountInString(videoDescription) > 4096 {
+	   			videoDescription = truncateByRunes(videoDescription, 4095) + "…"
+	   		}
+	   		var allowedRegion string
+	   		var blockedRegion string
+	   		if video.ContentDetails.RegionRestriction != nil {
+	   			if len(video.ContentDetails.RegionRestriction.Blocked) >= 249 {
+	   				continue
+	   			}
 
-		// duration
+	   			if video.ContentDetails.RegionRestriction.Allowed != nil {
+	   				allowedRegion = strings.Join(video.ContentDetails.RegionRestriction.Allowed, ", ")
+	   			}
+	   			if video.ContentDetails.RegionRestriction.Blocked != nil {
+	   				blockedRegion = strings.Join(video.ContentDetails.RegionRestriction.Blocked, ", ")
+	   			}
+	   		}
+	   		var scheduledStartTime string
+	   		if video.LiveStreamingDetails != nil && video.LiveStreamingDetails.ScheduledStartTime != "" {
+	   			scheduledStartTime = video.LiveStreamingDetails.ScheduledStartTime
+	   		}
+	   		channelName := video.Snippet.ChannelTitle
+	   		publishedTime := video.Snippet.PublishedAt
 
-		caption, entities := BuildCaption(&Caption{
-			VideoTitle:         videoTitle,
-			VideoUrl:           videoUrl,
-			VideoDescription:   videoDescription,
-			ChannelName:        channelName,
-			ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
-			AllowedRegion:      allowedRegion,
-			BlockedRegion:      blockedRegion,
-			ScheduledStartTime: scheduledStartTime,
-			PublishedTime:      publishedTime,
-			TimeZone:           timezone,
-		})
+	   		var thumbnailUrl string
+	   		if video.Snippet.Thumbnails != nil && video.Snippet.Thumbnails.Maxres != nil {
+	   			thumbnailUrl = video.Snippet.Thumbnails.Maxres.Url
+	   		}
 
-		if getUtf16Len(caption) < 1024 {
-			msg := Message{
-				text:            caption,
-				videoUrl:        videoUrl,
-				messageThreadId: messageThreadId,
-				entities:        entities,
-				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-					Url:              videoUrl,
-					PreferLargeMedia: true,
-					ShowAboveText:    true,
-				},
-			}
-			if thumbnailUrl != "" {
-				msg.imageUrl = thumbnailUrl
-			}
-			b.mb.bot.msgChannel <- MultiMessage{
-				First: &msg,
-			}
-		} else {
-			caption, entities := BuildCaption(&Caption{
-				VideoTitle: videoTitle,
-				VideoUrl:   videoUrl,
-				// VideoDescription:   videoDescription,
-				ChannelName:        channelName,
-				ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
-				AllowedRegion:      allowedRegion,
-				BlockedRegion:      blockedRegion,
-				ScheduledStartTime: scheduledStartTime,
-				PublishedTime:      publishedTime,
-				TimeZone:           timezone,
-			})
-			msg := Message{
-				text:            caption,
-				videoUrl:        videoUrl,
-				messageThreadId: messageThreadId,
-				entities:        entities,
-				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-					Url:              videoUrl,
-					PreferLargeMedia: true,
-					ShowAboveText:    true,
-				},
-			}
-			if thumbnailUrl != "" {
-				msg.imageUrl = thumbnailUrl
-			}
-			b.mb.bot.msgChannel <- MultiMessage{
-				First: &msg,
-				Last: []Message{
-					{
-						text:            videoDescription,
-						messageThreadId: messageThreadId,
-						entities: []gotgbot.MessageEntity{
-							{
-								Type:   "expandable_blockquote",
-								Offset: 0,
-								Length: getUtf16Len(videoDescription),
-							},
-						},
-						linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-							IsDisabled: true,
-						},
-					},
-				},
-			}
-		}
-	}
+	   		var timezone string
+	   		if video.Snippet.DefaultLanguage != "" {
+	   			timezone = GetTimeZone(video.Snippet.DefaultLanguage)
+	   		} else if video.Snippet.DefaultAudioLanguage != "" {
+	   			timezone = GetTimeZone(video.Snippet.DefaultAudioLanguage)
+	   		} else {
+	   			timezone = "UTC"
+	   		}
 
-	return nil
+	   		// duration
+
+	   		caption, entities := BuildCaption(&Caption{
+	   			VideoTitle:         videoTitle,
+	   			VideoUrl:           videoUrl,
+	   			VideoDescription:   videoDescription,
+	   			ChannelName:        channelName,
+	   			ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
+	   			AllowedRegion:      allowedRegion,
+	   			BlockedRegion:      blockedRegion,
+	   			ScheduledStartTime: scheduledStartTime,
+	   			PublishedTime:      publishedTime,
+	   			TimeZone:           timezone,
+	   		})
+
+	   		if getUtf16Len(caption) < 1024 {
+	   			msg := Message{
+	   				text:            caption,
+	   				videoUrl:        videoUrl,
+	   				messageThreadId: messageThreadId,
+	   				entities:        entities,
+	   				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+	   					Url:              videoUrl,
+	   					PreferLargeMedia: true,
+	   					ShowAboveText:    true,
+	   				},
+	   			}
+	   			if thumbnailUrl != "" {
+	   				msg.imageUrl = thumbnailUrl
+	   			}
+	   			b.mb.bot.msgChannel <- MultiMessage{
+	   				First: &msg,
+	   			}
+	   		} else {
+	   			caption, entities := BuildCaption(&Caption{
+	   				VideoTitle: videoTitle,
+	   				VideoUrl:   videoUrl,
+	   				// VideoDescription:   videoDescription,
+	   				ChannelName:        channelName,
+	   				ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
+	   				AllowedRegion:      allowedRegion,
+	   				BlockedRegion:      blockedRegion,
+	   				ScheduledStartTime: scheduledStartTime,
+	   				PublishedTime:      publishedTime,
+	   				TimeZone:           timezone,
+	   			})
+	   			msg := Message{
+	   				text:            caption,
+	   				videoUrl:        videoUrl,
+	   				messageThreadId: messageThreadId,
+	   				entities:        entities,
+	   				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+	   					Url:              videoUrl,
+	   					PreferLargeMedia: true,
+	   					ShowAboveText:    true,
+	   				},
+	   			}
+	   			if thumbnailUrl != "" {
+	   				msg.imageUrl = thumbnailUrl
+	   			}
+	   			b.mb.bot.msgChannel <- MultiMessage{
+	   				First: &msg,
+	   				Last: []Message{
+	   					{
+	   						text:            videoDescription,
+	   						messageThreadId: messageThreadId,
+	   						entities: []gotgbot.MessageEntity{
+	   							{
+	   								Type:   "expandable_blockquote",
+	   								Offset: 0,
+	   								Length: getUtf16Len(videoDescription),
+	   							},
+	   						},
+	   						linkPreviewOptions: &gotgbot.LinkPreviewOptions{
+	   							IsDisabled: true,
+	   						},
+	   					},
+	   				},
+	   			}
+	   		}
+	   	}
+
+	   return nil
+	*/
 }
 
 func (b *BotHelper) handleUnsubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
@@ -357,13 +401,20 @@ func (b *BotHelper) handleUnsubCommand(bot *gotgbot.Bot, ctx *ext.Context) error
 	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
 		return nil
 	}
-	messageThreadId := ctx.EffectiveMessage.MessageThreadId
 	text := ctx.EffectiveMessage.Text
 	channelId := text[7:]
 
+	sub, err := b.mb.db.GetSubscription(channelId)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if errors.Is(err, sql.ErrNoRows) || sub == nil {
+		return nil
+	}
+
 	newSecret := sha256.Sum256([]byte(b.mb.config.Secret))
 
-	callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", b.mb.config.ServerDomain, fmt.Sprintf("%x", newSecret), messageThreadId, channelId)
+	callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", b.mb.config.ServerDomain, fmt.Sprintf("%x", newSecret), sub.ThreadID, channelId)
 	topicUrl := fmt.Sprintf("https://www.youtube.com/xml/feeds/videos.xml?channel_id=%s", channelId)
 
 	if err := b.mb.ws.Subscribe(websub.ModeUnsubscribe, callbackUrl, topicUrl, nil); err != nil {
@@ -375,7 +426,9 @@ func (b *BotHelper) handleUnsubCommand(bot *gotgbot.Bot, ctx *ext.Context) error
 		}
 	}
 
-	return nil
+	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("unsubscribing %s...", channelId), nil)
+
+	return err
 }
 
 func (b *BotHelper) handleRegexCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
