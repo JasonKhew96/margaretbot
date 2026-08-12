@@ -74,6 +74,7 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 	if caption.Localization != nil && len(caption.Localization.Title) > 0 {
 		quotedText := entityhelper.NewMessage()
 		quotedText.AddText(caption.Localization.Title)
+		quotedText.AddText("\n")
 		msg.AddNestedEntity(quotedText, gotgbot.MessageEntity{
 			Type: "blockquote",
 		})
