@@ -156,11 +156,11 @@ func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
 		msg.AddEntity(caption.VideoDescription, gotgbot.MessageEntity{
 			Type: "expandable_blockquote",
 		})
-	}
-	if caption.Localization != nil && len(caption.Localization.Description) > 0 {
-		msg.AddEntity(caption.Localization.Description, gotgbot.MessageEntity{
-			Type: "expandable_blockquote",
-		})
+		if caption.Localization != nil && len(caption.Localization.Description) > 0 {
+			msg.AddEntity(caption.Localization.Description, gotgbot.MessageEntity{
+				Type: "expandable_blockquote",
+			})
+		}
 	}
 
 	return msg.GetText(), msg.GetEntities()
