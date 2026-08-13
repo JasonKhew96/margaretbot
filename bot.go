@@ -137,7 +137,7 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 	if ctx.EffectiveSender.User.Id != b.mb.config.OwnerId {
 		return nil
 	}
-	messageThreadId := int64(0)
+	messageThreadId := ctx.EffectiveMessage.MessageThreadId
 	text := ctx.EffectiveMessage.Text
 	channelId := text[5:]
 
@@ -167,15 +167,17 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 
 		channelTitle := channels.Items[0].Snippet.Title
 
-		topic, err := bot.CreateForumTopic(b.mb.config.ChatId, channelTitle, nil)
-		if err != nil {
-			return err
-		}
-		messageThreadId = topic.MessageThreadId
+		if b.mb.config.LogThreadId != 0 && ctx.EffectiveMessage.MessageThreadId == b.mb.config.LogThreadId {
+			topic, err := bot.CreateForumTopic(b.mb.config.ChatId, channelTitle, nil)
+			if err != nil {
+				return err
+			}
+			messageThreadId = topic.MessageThreadId
 
-		_, err = bot.CloseForumTopic(b.mb.config.ChatId, topic.MessageThreadId, nil)
-		if err != nil {
-			log.Println(err)
+			_, err = bot.CloseForumTopic(b.mb.config.ChatId, messageThreadId, nil)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
 		err = b.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
