@@ -157,7 +157,7 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		channels, err := b.mb.yt.service.Channels.List([]string{"snippet"}).Do()
+		channels, err := b.mb.yt.service.Channels.List([]string{"snippet"}).Id(channelId).Do()
 		if err != nil {
 			return err
 		}
