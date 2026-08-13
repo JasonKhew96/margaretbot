@@ -161,7 +161,7 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		if err != nil {
 			return err
 		}
-		if channels.PageInfo.TotalResults > 0 || len(channels.Items) <= 0 {
+		if channels.PageInfo.TotalResults <= 0 || len(channels.Items) <= 0 {
 			return nil
 		}
 
