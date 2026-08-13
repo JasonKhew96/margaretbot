@@ -157,13 +157,35 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 		return err
 	}
 	if errors.Is(err, sql.ErrNoRows) {
-		topic, err := bot.CreateForumTopic(b.mb.config.ChatId, "Untitled", nil)
+		channels, err := b.mb.yt.service.Channels.List([]string{"snippet"}).Do()
+		if err != nil {
+			return err
+		}
+		if channels.PageInfo.TotalResults > 0 || len(channels.Items) <= 0 {
+			return nil
+		}
+
+		channelTitle := channels.Items[0].Snippet.Title
+
+		topic, err := bot.CreateForumTopic(b.mb.config.ChatId, channelTitle, nil)
 		if err != nil {
 			return err
 		}
 		messageThreadId = topic.MessageThreadId
 
 		_, err = bot.CloseForumTopic(b.mb.config.ChatId, topic.MessageThreadId, nil)
+		if err != nil {
+			log.Println(err)
+		}
+
+		err = b.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
+			ChannelTitle: channelTitle,
+		})
+
+		log.Printf("subscribing to %s...", channelId)
+
+		topicLink := fmt.Sprintf("https://t.me/c/%d/%d", mtprotoId, messageThreadId)
+		_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("subscribing to %s: %s", channelTitle, topicLink), nil)
 		if err != nil {
 			log.Println(err)
 		}
@@ -191,28 +213,6 @@ func (b *BotHelper) handleSubCommand(bot *gotgbot.Bot, ctx *ext.Context) error {
 			log.Println(err)
 			return err
 		}
-	}
-
-	log.Printf("subscribing to %s...", channelId)
-
-	channels, err := b.mb.yt.service.Channels.List([]string{"snippet"}).Do()
-	if err != nil {
-		return err
-	}
-	if channels.PageInfo.TotalResults > 0 || len(channels.Items) <= 0 {
-		return nil
-	}
-
-	channelTitle := channels.Items[0].Snippet.Title
-
-	err = b.mb.db.UpsertSubscription(channelId, &SubscriptionOpts{
-		ChannelTitle: channelTitle,
-	})
-
-	topicLink := fmt.Sprintf("https://t.me/c/%d/%d", mtprotoId, messageThreadId)
-	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("subscribing to %s: %s", channelTitle, topicLink), nil)
-	if err != nil {
-		log.Println(err)
 	}
 
 	return nil
