@@ -144,7 +144,7 @@ func (d *DbHelper) GetSubscriptions() (models.SubscriptionSlice, error) {
 }
 
 func (d *DbHelper) GetExpiringSubscriptions() (models.SubscriptionSlice, error) {
-	return models.Subscriptions.Query(models.SelectWhere.Subscriptions.ExpiredAt.LT(time.Now())).All(d.ctx, d.db)
+	return models.Subscriptions.Query(models.SelectWhere.Subscriptions.ExpiredAt.LT(time.Now().Add(-24*time.Hour))).All(d.ctx, d.db)
 }
 
 func (d *DbHelper) GetTitleNullSubscriptions() (models.SubscriptionSlice, error) {
