@@ -9,116 +9,66 @@ import (
 )
 
 type Message struct {
-	text               string
-	videoUrl           string
-	imageUrl           string
-	messageThreadId    int64
-	entities           []gotgbot.MessageEntity
-	linkPreviewOptions *gotgbot.LinkPreviewOptions
+	text            string
+	caption         *RichMessageOpt
+	messageThreadId int64
 }
 
-type MultiMessage struct {
-	IgnoreThreadId bool
-	First          *Message
-	Last           []Message
-}
+func (b *BotHelper) work(chatId int64, limiter *rate.Limiter, msg Message) {
+	if msg.caption != nil {
+		sendRichMessageOpts := &gotgbot.SendRichMessageOpts{
+			MessageThreadId: msg.messageThreadId,
+		}
 
-func (b *BotHelper) work(chatId int64, limiter *rate.Limiter, multiMsg MultiMessage) {
-	if multiMsg.First == nil {
-		return
-	}
-	fallback := func() {
-		limiter.Wait(b.ctx)
-		first := multiMsg.First
-		opts := gotgbot.SendMessageOpts{
-			Entities:           first.entities,
-			LinkPreviewOptions: first.linkPreviewOptions,
+		fallback := func() {
+			limiter.Wait(b.ctx)
+			msg.caption.ThumbnailUrl = ""
+			inputRichMessage := BuildRichMessage(*msg.caption)
+
+			_, err := b.mb.bot.bot.SendRichMessage(chatId, inputRichMessage, sendRichMessageOpts)
+			if err != nil {
+				log.Printf("failed to send message: %+v\n%+v", inputRichMessage, err)
+			}
 		}
-		if !multiMsg.IgnoreThreadId {
-			opts.MessageThreadId = first.messageThreadId
-		}
-		msg, err := b.mb.bot.bot.SendMessage(chatId, first.text, &opts)
-		if err != nil {
-			log.Printf("failed to send message: %+v\n%+v", first, err)
-		}
-		last := multiMsg.Last
-		if last == nil {
+		if msg.caption.ThumbnailUrl == "" {
+			fallback()
 			return
 		}
-		for _, m := range multiMsg.Last {
-			limiter.Wait(b.ctx)
-			opts = gotgbot.SendMessageOpts{
-				Entities:           m.entities,
-				LinkPreviewOptions: m.linkPreviewOptions,
-				ReplyParameters: &gotgbot.ReplyParameters{
-					MessageId: msg.MessageId,
-				},
-			}
-			if !multiMsg.IgnoreThreadId {
-				opts.MessageThreadId = m.messageThreadId
-			}
-			if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &opts); err != nil {
-				log.Printf("failed to send message: %+v\n%+v", last, err)
-			}
-		}
-	}
-	if multiMsg.First.imageUrl == "" {
-		fallback()
-		return
-	}
 
-	limiter.Wait(b.ctx)
-	first := multiMsg.First
-
-	inputFile, err := downloadToBuffer(first.imageUrl)
-	if err != nil {
-		inputFile = gotgbot.InputFileByURL(first.imageUrl)
-	}
-
-	photoOpts := gotgbot.SendPhotoOpts{
-		Caption:         first.text,
-		CaptionEntities: first.entities,
-	}
-	if !multiMsg.IgnoreThreadId {
-		photoOpts.MessageThreadId = first.messageThreadId
-	}
-	msg, err := b.mb.bot.bot.SendPhoto(chatId, inputFile, &photoOpts)
-	if err != nil {
-		log.Printf("failed to send message: %+v\n%+v", first, err)
-		fallback()
-		return
-	}
-	last := multiMsg.Last
-	if last == nil {
-		return
-	}
-	for _, m := range last {
 		limiter.Wait(b.ctx)
-		opts := gotgbot.SendMessageOpts{
-			Entities:           m.entities,
-			LinkPreviewOptions: m.linkPreviewOptions,
-			ReplyParameters: &gotgbot.ReplyParameters{
-				MessageId: msg.MessageId,
-			},
+
+		inputRichMessage := BuildRichMessage(*msg.caption)
+		_, err := b.mb.bot.bot.SendRichMessage(chatId, inputRichMessage, sendRichMessageOpts)
+		if err != nil {
+			log.Printf("failed to send message: %+v\n%+v", inputRichMessage, err)
+			fallback()
+			return
 		}
-		if !multiMsg.IgnoreThreadId {
-			opts.MessageThreadId = m.messageThreadId
-		}
-		if _, err := b.mb.bot.bot.SendMessage(chatId, m.text, &opts); err != nil {
-			log.Printf("failed to send message: %+v\n%+v", last, err)
-		}
+		return
+	}
+
+	if len(msg.text) <= 0 {
+		return
+	}
+
+	_, err := b.mb.bot.bot.SendMessage(chatId, msg.text, &gotgbot.SendMessageOpts{
+		MessageThreadId: msg.messageThreadId,
+	})
+	if err != nil {
+		log.Printf("failed to send message: %+v\n%+v", msg.text, err)
+		return
 	}
 }
 
-func (b *BotHelper) telegramWorker(chatId int64, multiMsgs chan MultiMessage) {
+func (b *BotHelper) telegramWorker(chatId int64, msgs chan Message) {
 	log.Printf("%d worker started...", chatId)
 	limiter := rate.NewLimiter(rate.Every(time.Minute/20), 1)
 	for {
-		multiMsg, ok := <-multiMsgs
+		msg, ok := <-msgs
 		if !ok {
 			log.Printf("%d worker removed...", chatId)
 			return
 		}
-		b.work(chatId, limiter, multiMsg)
+		b.work(chatId, limiter, msg)
 	}
 }

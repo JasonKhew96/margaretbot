@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
+	"maps"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf16"
 
-	"github.com/JasonKhew96/margaretbot/entityhelper"
 	"github.com/PaulSonOfLars/gotgbot/v2"
 	"github.com/friendsofgo/errors"
 	"github.com/sosodev/duration"
@@ -41,10 +42,10 @@ func Text2ExpandableQuote(text string) string {
 	return result
 }
 
-type Caption struct {
-	VideoTitle string
-	VideoUrl   string
-	// ThumbnailUrl       string
+type RichMessageOpt struct {
+	VideoTitle         string
+	VideoUrl           string
+	ThumbnailUrl       string
 	VideoDescription   string
 	VideoDuration      string
 	ChannelName        string
@@ -54,117 +55,267 @@ type Caption struct {
 	ScheduledStartTime string
 	PublishedTime      string
 	TimeZone           string
-	Localization       *youtube.VideoLocalization
+	DefaultLanguage    string
+	Localizations      map[string]youtube.VideoLocalization
 }
 
 func getUtf16Len(s string) int64 {
 	return int64(len(utf16.Encode([]rune(s))))
 }
 
-func BuildCaption(caption *Caption) (string, []gotgbot.MessageEntity) {
+var priorityOrder = map[string]int{
+	"zh-Hant": 1,
+	"zh-TW":   2,
+	"zh-HK":   3,
+	"zh-Hans": 4,
+	"zh-CN":   5,
+	"zh":      6,
+	"en-US":   7,
+	"en":      8,
+}
 
-	msg := entityhelper.NewMessage()
-	if caption.VideoTitle != "" {
-		msg.AddEntity(caption.VideoTitle, gotgbot.MessageEntity{
-			Type: "text_link",
-			Url:  caption.VideoUrl,
-		})
-		msg.AddText("\n")
+func getPriority(key string) int {
+	if p, exists := priorityOrder[key]; exists {
+		return p
 	}
-	if caption.Localization != nil && len(caption.Localization.Title) > 0 {
-		quotedText := entityhelper.NewMessage()
-		quotedText.AddText(caption.Localization.Title)
-		quotedText.AddText("\n")
-		msg.AddNestedEntity(quotedText, gotgbot.MessageEntity{
-			Type: "blockquote",
+	return 99
+}
+
+func BuildRichMessage(opt RichMessageOpt) gotgbot.InputRichMessage {
+	inputRichBlocks := []gotgbot.InputRichBlock{}
+
+	if opt.VideoTitle != "" {
+		inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockSectionHeading{
+			Text: gotgbot.RichTextUrl{
+				Text: gotgbot.RichTextString(opt.VideoTitle),
+				Url:  opt.VideoUrl,
+			},
+			Size: 3,
 		})
 	}
-	quotedText := entityhelper.NewMessage()
-	if caption.ChannelName != "" {
-		quotedText.AddText("频道: ")
-		quotedText.AddEntity(caption.ChannelName, gotgbot.MessageEntity{
-			Type: "text_link",
-			Url:  caption.ChannelUrl,
+
+	preferedLocale := ytGetPreferedLocale(opt.Localizations, opt.DefaultLanguage)
+	if preferedLocale != nil {
+		inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockBlockQuotation{
+			Blocks: []gotgbot.InputRichBlock{
+				gotgbot.InputRichBlockParagraph{
+					Text: gotgbot.RichTextString(preferedLocale.Title),
+				},
+			},
 		})
-		quotedText.AddText("\n")
 	}
-	if len(caption.ScheduledStartTime) > 0 {
-		quotedText.AddText("首播时间: ")
-		parsedTime, err := time.Parse("2006-01-02T15:04:05Z", caption.ScheduledStartTime)
+
+	if opt.ThumbnailUrl != "" {
+		inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockPhoto{
+			Photo: gotgbot.InputMediaPhoto{
+				Media: gotgbot.InputFileByURL(opt.ThumbnailUrl),
+			},
+		})
+	}
+
+	richTextChannel := gotgbot.RichTextArray{}
+	if opt.ChannelName != "" {
+		richTextChannel = append(richTextChannel, gotgbot.RichTextString("频道: "), gotgbot.RichTextUrl{
+			Text: gotgbot.RichTextString(opt.ChannelName),
+			Url:  opt.ChannelUrl,
+		}, gotgbot.RichTextString("\n"))
+	}
+
+	if len(opt.ScheduledStartTime) > 0 {
+		richTextChannel = append(richTextChannel, gotgbot.RichTextString("首播时间: "))
+		parsedTime, err := time.Parse("2006-01-02T15:04:05Z", opt.ScheduledStartTime)
 		if err != nil {
-			quotedText.AddEntity(caption.ScheduledStartTime, gotgbot.MessageEntity{
-				Type: "code",
+			richTextChannel = append(richTextChannel, gotgbot.RichTextCode{
+				Text: gotgbot.RichTextString(opt.ScheduledStartTime),
 			})
 		} else {
-			loc, _ := time.LoadLocation(caption.TimeZone)
-			quotedText.AddEntity(parsedTime.In(loc).Format("02/01/2006 15:04:05 MST-07"), gotgbot.MessageEntity{
-				DateTimeFormat: "wdT",
-				Type:           "date_time",
+			loc, _ := time.LoadLocation(opt.TimeZone)
+			richTextChannel = append(richTextChannel, gotgbot.RichTextDateTime{
+				Text:           gotgbot.RichTextString(parsedTime.In(loc).Format("02/01/2006 15:04:05 MST-07")),
 				UnixTime:       parsedTime.Unix(),
-			})
-		}
-		quotedText.AddText("\n")
-	}
-	if len(caption.PublishedTime) > 0 {
-		quotedText.AddText("发布时间: ")
-		parsedTime, err := time.Parse("2006-01-02T15:04:05Z", caption.PublishedTime)
-		if err != nil {
-			quotedText.AddEntity(caption.PublishedTime, gotgbot.MessageEntity{
-				Type: "code",
-			})
-		} else {
-			loc, _ := time.LoadLocation(caption.TimeZone)
-			quotedText.AddEntity(parsedTime.In(loc).Format("02/01/2006 15:04:05 MST-07"), gotgbot.MessageEntity{
 				DateTimeFormat: "wdT",
-				Type:           "date_time",
-				UnixTime:       parsedTime.Unix(),
 			})
 		}
-		quotedText.AddText("\n")
+		richTextChannel = append(richTextChannel, gotgbot.RichTextString("\n"))
 	}
-	if len(caption.VideoDuration) > 0 && caption.VideoDuration != "PT0S" && caption.VideoDuration != "P0D" {
-		quotedText.AddText("时长: ")
-		d, err := duration.Parse(caption.VideoDuration)
+
+	if len(opt.PublishedTime) > 0 {
+		richTextChannel = append(richTextChannel, gotgbot.RichTextString("发布时间: "))
+		parsedTime, err := time.Parse("2006-01-02T15:04:05Z", opt.PublishedTime)
 		if err != nil {
-			quotedText.AddEntity(caption.VideoDuration, gotgbot.MessageEntity{
-				Type: "code",
+			richTextChannel = append(richTextChannel, gotgbot.RichTextCode{
+				Text: gotgbot.RichTextString(opt.PublishedTime),
 			})
 		} else {
-			quotedText.AddEntity(d.ToTimeDuration().String(), gotgbot.MessageEntity{
-				Type: "code",
+			loc, _ := time.LoadLocation(opt.TimeZone)
+			richTextChannel = append(richTextChannel, gotgbot.RichTextDateTime{
+				Text:           gotgbot.RichTextString(parsedTime.In(loc).Format("02/01/2006 15:04:05 MST-07")),
+				UnixTime:       parsedTime.Unix(),
+				DateTimeFormat: "wdT",
 			})
 		}
-		quotedText.AddText("\n")
+		richTextChannel = append(richTextChannel, gotgbot.RichTextString("\n"))
 	}
-	if len(caption.AllowedRegion) > 0 {
-		quotedText.AddText("允许地区: ")
-		quotedText.AddEntity(caption.AllowedRegion, gotgbot.MessageEntity{
-			Type: "code",
-		})
-		quotedText.AddText("\n")
+
+	if len(opt.VideoDuration) > 0 && opt.VideoDuration != "PT0S" && opt.VideoDuration != "P0D" {
+		richTextChannel = append(richTextChannel, gotgbot.RichTextString("时长: "))
+		d, err := duration.Parse(opt.VideoDuration)
+		if err != nil {
+			richTextChannel = append(richTextChannel, gotgbot.RichTextCode{
+				Text: gotgbot.RichTextString(opt.VideoDuration),
+			})
+		} else {
+			richTextChannel = append(richTextChannel, gotgbot.RichTextCode{
+				Text: gotgbot.RichTextString(d.ToTimeDuration().String()),
+			})
+		}
 	}
-	if len(caption.BlockedRegion) > 0 {
-		quotedText.AddText("屏蔽地区: ")
-		quotedText.AddEntity(caption.BlockedRegion, gotgbot.MessageEntity{
-			Type: "code",
-		})
-		quotedText.AddText("\n")
-	}
-	msg.AddNestedEntity(quotedText, gotgbot.MessageEntity{
-		Type: "expandable_blockquote",
+
+	inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockBlockQuotation{
+		Blocks: []gotgbot.InputRichBlock{
+			gotgbot.InputRichBlockParagraph{
+				Text: richTextChannel,
+			},
+		},
 	})
-	if len(caption.VideoDescription) > 0 {
-		msg.AddEntity(caption.VideoDescription, gotgbot.MessageEntity{
-			Type: "expandable_blockquote",
-		})
-		if caption.Localization != nil && len(caption.Localization.Description) > 0 {
-			msg.AddEntity(caption.Localization.Description, gotgbot.MessageEntity{
-				Type: "expandable_blockquote",
+
+	if len(opt.AllowedRegion) > 0 {
+		if len(opt.AllowedRegion) > 144 {
+			inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockDetails{
+				Summary: gotgbot.RichTextString("允许地区"),
+				Blocks: []gotgbot.InputRichBlock{
+					gotgbot.InputRichBlockBlockQuotation{
+						Blocks: []gotgbot.InputRichBlock{
+							gotgbot.InputRichBlockParagraph{
+								Text: gotgbot.RichTextCode{
+									Text: gotgbot.RichTextString(opt.AllowedRegion),
+								},
+							},
+						},
+					},
+				},
+			})
+		} else {
+			inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockBlockQuotation{
+				Blocks: []gotgbot.InputRichBlock{
+					gotgbot.InputRichBlockParagraph{
+						Text: gotgbot.RichTextArray{
+							gotgbot.RichTextString("允许地区: "),
+							gotgbot.RichTextCode{
+								Text: gotgbot.RichTextString(opt.AllowedRegion),
+							},
+						},
+					},
+				},
 			})
 		}
 	}
 
-	return msg.GetText(), msg.GetEntities()
+	if len(opt.BlockedRegion) > 0 {
+		if len(opt.BlockedRegion) > 144 {
+			inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockDetails{
+				Summary: gotgbot.RichTextString("屏蔽地区"),
+				Blocks: []gotgbot.InputRichBlock{
+					gotgbot.InputRichBlockBlockQuotation{
+						Blocks: []gotgbot.InputRichBlock{
+							gotgbot.InputRichBlockParagraph{
+								Text: gotgbot.RichTextCode{
+									Text: gotgbot.RichTextString(opt.BlockedRegion),
+								},
+							},
+						},
+					},
+				},
+			})
+		} else {
+			inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockBlockQuotation{
+				Blocks: []gotgbot.InputRichBlock{
+					gotgbot.InputRichBlockParagraph{
+						Text: gotgbot.RichTextArray{
+							gotgbot.RichTextString("屏蔽地区: "),
+							gotgbot.RichTextCode{
+								Text: gotgbot.RichTextString(opt.BlockedRegion),
+							},
+						},
+					},
+				},
+			})
+		}
+	}
+
+	if len(opt.VideoDescription) > 0 {
+		if strings.Count(opt.VideoDescription, "\n") > 4 {
+			inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockDetails{
+				Summary: gotgbot.RichTextString("简介"),
+				Blocks: []gotgbot.InputRichBlock{
+					gotgbot.InputRichBlockBlockQuotation{
+						Blocks: []gotgbot.InputRichBlock{
+							gotgbot.InputRichBlockParagraph{
+								Text: gotgbot.RichTextString(opt.VideoDescription),
+							},
+						},
+					},
+				},
+				IsOpen: false,
+			})
+		} else {
+			inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockBlockQuotation{
+				Blocks: []gotgbot.InputRichBlock{
+					gotgbot.InputRichBlockParagraph{
+						Text: gotgbot.RichTextString(opt.VideoDescription),
+					},
+				},
+			})
+		}
+	}
+
+	keys := slices.Collect(maps.Keys(opt.Localizations))
+	if len(opt.DefaultLanguage) > 0 {
+		keys = slices.DeleteFunc(keys, func(k string) bool {
+			return k == opt.DefaultLanguage
+		})
+	}
+	if len(keys) > 0 {
+		slices.SortFunc(keys, func(a, b string) int {
+			pA, pB := getPriority(a), getPriority(b)
+			if pA != pB {
+				return pA - pB
+			}
+			return strings.Compare(a, b)
+		})
+		richBlockLocale := []gotgbot.InputRichBlock{}
+		for _, k := range keys {
+			l := opt.Localizations[k]
+			richBlockLocale = append(richBlockLocale, gotgbot.InputRichBlockDetails{
+				Summary: gotgbot.RichTextString(k),
+				Blocks: []gotgbot.InputRichBlock{
+					gotgbot.InputRichBlockBlockQuotation{
+						Blocks: []gotgbot.InputRichBlock{
+							gotgbot.InputRichBlockParagraph{
+								Text: gotgbot.RichTextString(l.Title),
+							},
+						},
+					},
+					gotgbot.InputRichBlockBlockQuotation{
+						Blocks: []gotgbot.InputRichBlock{
+							gotgbot.InputRichBlockParagraph{
+								Text: gotgbot.RichTextString(l.Description),
+							},
+						},
+					},
+				},
+			})
+		}
+
+		inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockDetails{
+			Summary: gotgbot.RichTextString("翻译"),
+			Blocks:  richBlockLocale,
+		})
+	}
+
+	return gotgbot.InputRichMessage{
+		Blocks: inputRichBlocks,
+	}
 }
 
 func GetTimeZone(language string) string {
@@ -239,7 +390,7 @@ func chatId2mtprotoId(chatId int64) int64 {
 }
 
 func ytGetPreferedLocale(l map[string]youtube.VideoLocalization, d string) *youtube.VideoLocalization {
-	preferedLocale := []string{"zh-Hant", "zh-TW", "zh-HK", "zh-Hans", "zh-CN", "zh"}
+	preferedLocale := []string{"zh-Hant", "zh-TW", "zh-HK", "zh-Hans", "zh-CN", "zh", "en-US", "en"}
 
 	for _, locale := range preferedLocale {
 		if v, ok := l[locale]; ok && locale != d {

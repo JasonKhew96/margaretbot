@@ -68,21 +68,15 @@ func (s *WebhookHandler) processAPI() {
 		log.Printf("failed to get video list: %v", err)
 
 		for _, q := range newQueue {
-			caption, entities := BuildCaption(&Caption{
-				VideoTitle:    q.videoTitle,
-				VideoUrl:      q.videoUrl,
-				ChannelName:   q.channelName,
-				ChannelUrl:    q.channelUrl,
-				PublishedTime: q.publishedTime,
-			})
-			s.mb.bot.msgChannel <- MultiMessage{
-				First: &Message{
-					text:     caption,
-					videoUrl: q.videoUrl,
-					// imageUrl:        fmt.Sprintf("https://i.ytimg.com/vi/%s/maxresdefault.jpg", videoId),
-					messageThreadId: q.threadId,
-					entities:        entities,
+			s.mb.bot.msgChannel <- Message{
+				caption: &RichMessageOpt{
+					VideoTitle:    q.videoTitle,
+					VideoUrl:      q.videoUrl,
+					ChannelName:   q.channelName,
+					ChannelUrl:    q.channelUrl,
+					PublishedTime: q.publishedTime,
 				},
+				messageThreadId: q.threadId,
 			}
 		}
 		return
@@ -195,265 +189,59 @@ func (s *WebhookHandler) processAPI() {
 			log.Printf("error GetForwards: %+v", err)
 		}
 
-		c := &Caption{
-			VideoTitle:         videoTitle,
-			VideoUrl:           videoUrl,
-			VideoDescription:   videoDescription,
-			VideoDuration:      video.ContentDetails.Duration,
-			ChannelName:        channelName,
-			ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
-			AllowedRegion:      allowedRegion,
-			BlockedRegion:      blockedRegion,
-			ScheduledStartTime: scheduledStartTime,
-			PublishedTime:      publishedTime,
-			TimeZone:           timezone,
-			Localization:       ytGetPreferedLocale(video.Localizations, video.Snippet.DefaultLanguage),
+		msg := Message{
+			caption: &RichMessageOpt{
+				VideoTitle:         videoTitle,
+				VideoUrl:           videoUrl,
+				ThumbnailUrl:       thumbnailUrl,
+				VideoDescription:   videoDescription,
+				VideoDuration:      video.ContentDetails.Duration,
+				ChannelName:        channelName,
+				ChannelUrl:         fmt.Sprintf("https://www.youtube.com/channel/%s", video.Snippet.ChannelId),
+				AllowedRegion:      allowedRegion,
+				BlockedRegion:      blockedRegion,
+				ScheduledStartTime: scheduledStartTime,
+				PublishedTime:      publishedTime,
+				TimeZone:           timezone,
+				DefaultLanguage:    video.Snippet.DefaultLanguage,
+				Localizations:      video.Localizations,
+			},
+			messageThreadId: q.threadId,
 		}
-		caption, entities := BuildCaption(c)
-
-		if getUtf16Len(caption) < 1024 {
-			msg := Message{
-				text:            caption,
-				videoUrl:        videoUrl,
-				messageThreadId: q.threadId,
-				entities:        entities,
-				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-					Url:              videoUrl,
-					PreferLargeMedia: true,
-					ShowAboveText:    true,
-				},
-			}
-			if thumbnailUrl != "" {
-				msg.imageUrl = thumbnailUrl
-			}
-			mm := MultiMessage{
-				First: &msg,
-			}
-			s.mb.bot.msgChannel <- mm
-			if forwards != nil {
-				mm.IgnoreThreadId = true
-				for _, forward := range forwards {
-					if ok, err := s.mb.db.IsForwardNo(forward.ChatID, video.Snippet.ChannelId); err != nil && !errors.Is(err, sql.ErrNoRows) {
-						log.Printf("error IsForwardNo: %+v", err)
-						continue
-					} else if ok {
-						log.Printf("%d %s is no forward", forward.ChatID, video.Snippet.ChannelId)
+		s.mb.bot.msgChannel <- msg
+		if forwards != nil {
+			msg.messageThreadId = 0
+			for _, forward := range forwards {
+				if ok, err := s.mb.db.IsForwardNo(forward.ChatID, video.Snippet.ChannelId); err != nil && !errors.Is(err, sql.ErrNoRows) {
+					log.Printf("error IsForwardNo: %+v", err)
+					continue
+				} else if ok {
+					log.Printf("%d %s is no forward", forward.ChatID, video.Snippet.ChannelId)
+					continue
+				}
+				if forward.RegexBan.IsValue() {
+					re, err := regexp.Compile(forward.RegexBan.GetOrZero())
+					if err != nil {
+						log.Printf("failed to compile regex: %v", err)
 						continue
 					}
-					if forward.RegexBan.IsValue() {
-						re, err := regexp.Compile(forward.RegexBan.GetOrZero())
-						if err != nil {
-							log.Printf("failed to compile regex: %v", err)
-							continue
-						}
-						if re.MatchString(videoTitle) {
-							log.Printf("%s match forward regexBan: %s", video.Id, video.Snippet.Title)
-							continue
-						}
-					}
-					if forward.Regex.IsValue() {
-						re, err := regexp.Compile(forward.Regex.GetOrZero())
-						if err != nil {
-							log.Printf("failed to compile regex: %v", err)
-							continue
-						}
-						if re.MatchString(videoTitle) {
-							log.Printf("%s match forward regex: %s", video.Id, video.Snippet.Title)
-							if msgForward, ok := s.mb.bot.msgForwards[forward.ChatID]; !ok {
-								log.Printf("error msgForwards map")
-							} else {
-								msgForward <- mm
-							}
-						}
+					if re.MatchString(videoTitle) {
+						log.Printf("%s match forward regexBan: %s", video.Id, video.Snippet.Title)
+						continue
 					}
 				}
-			}
-			continue
-		}
-
-		c.VideoDescription = ""
-		caption, entities = BuildCaption(c)
-		if getUtf16Len(caption) < 1024 {
-			msg := Message{
-				text:            caption,
-				videoUrl:        videoUrl,
-				messageThreadId: q.threadId,
-				entities:        entities,
-				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-					Url:              videoUrl,
-					PreferLargeMedia: true,
-					ShowAboveText:    true,
-				},
-			}
-			if thumbnailUrl != "" {
-				msg.imageUrl = thumbnailUrl
-			}
-			mm := MultiMessage{
-				First: &msg,
-				Last: []Message{
-					{
-						text:            videoDescription,
-						messageThreadId: q.threadId,
-						entities: []gotgbot.MessageEntity{
-							{
-								Type:   "expandable_blockquote",
-								Offset: 0,
-								Length: getUtf16Len(videoDescription),
-							},
-						},
-						linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-							IsDisabled: true,
-						},
-					},
-				},
-			}
-			if c.Localization != nil && len(c.Localization.Description) > 0 {
-				videoDescriptionLocale := c.Localization.Description
-				if utf8.RuneCountInString(videoDescriptionLocale) > 4096 {
-					videoDescriptionLocale = truncateByRunes(videoDescriptionLocale, 4095) + "…"
-				}
-				mm.Last = append(mm.Last, Message{
-					text:            videoDescriptionLocale,
-					messageThreadId: q.threadId,
-					entities: []gotgbot.MessageEntity{
-						{
-							Type:   "expandable_blockquote",
-							Offset: 0,
-							Length: getUtf16Len(videoDescriptionLocale),
-						},
-					},
-					linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-						IsDisabled: true,
-					},
-				})
-			}
-
-			s.mb.bot.msgChannel <- mm
-			if forwards != nil {
-				mm.IgnoreThreadId = true
-				for _, forward := range forwards {
-					if ok, err := s.mb.db.IsForwardNo(forward.ChatID, video.Snippet.ChannelId); err != nil && !errors.Is(err, sql.ErrNoRows) {
-						log.Printf("error IsForwardNo: %+v", err)
-						continue
-					} else if ok {
-						log.Printf("%d %s is no forward", forward.ChatID, video.Snippet.ChannelId)
+				if forward.Regex.IsValue() {
+					re, err := regexp.Compile(forward.Regex.GetOrZero())
+					if err != nil {
+						log.Printf("failed to compile regex: %v", err)
 						continue
 					}
-					if forward.RegexBan.IsValue() {
-						re, err := regexp.Compile(forward.RegexBan.GetOrZero())
-						if err != nil {
-							log.Printf("failed to compile regex: %v", err)
-							continue
-						}
-						if re.MatchString(videoTitle) {
-							log.Printf("%s match forward regexBan: %s", video.Id, video.Snippet.Title)
-							continue
-						}
-					}
-					if forward.Regex.IsValue() {
-						re, err := regexp.Compile(forward.Regex.GetOrZero())
-						if err != nil {
-							log.Printf("failed to compile regex: %v", err)
-							continue
-						}
-						if re.MatchString(videoTitle) {
-							log.Printf("%s match forward regex: %s", video.Id, video.Snippet.Title)
-							if msgForward, ok := s.mb.bot.msgForwards[forward.ChatID]; !ok {
-								log.Printf("error msgForwards map")
-							} else {
-								msgForward <- mm
-							}
-						}
-					}
-				}
-			}
-			continue
-		}
-
-		c.AllowedRegion = ""
-		c.BlockedRegion = ""
-		caption, entities = BuildCaption(c)
-		if getUtf16Len(caption) < 1024 {
-			msg := Message{
-				text:            caption,
-				videoUrl:        videoUrl,
-				messageThreadId: q.threadId,
-				entities:        entities,
-				linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-					Url:              videoUrl,
-					PreferLargeMedia: true,
-					ShowAboveText:    true,
-				},
-			}
-			if thumbnailUrl != "" {
-				msg.imageUrl = thumbnailUrl
-			}
-			regionMsg, regionEntities := BuildCaption(&Caption{
-				AllowedRegion: allowedRegion,
-				BlockedRegion: blockedRegion,
-			})
-			mm := MultiMessage{
-				First: &msg,
-				Last: []Message{
-					{
-						text:            regionMsg,
-						messageThreadId: q.threadId,
-						entities:        regionEntities,
-						linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-							IsDisabled: true,
-						},
-					},
-					{
-						text:            videoDescription,
-						messageThreadId: q.threadId,
-						entities: []gotgbot.MessageEntity{
-							{
-								Type:   "expandable_blockquote",
-								Offset: 0,
-								Length: getUtf16Len(videoDescription),
-							},
-						},
-						linkPreviewOptions: &gotgbot.LinkPreviewOptions{
-							IsDisabled: true,
-						},
-					},
-				},
-			}
-			s.mb.bot.msgChannel <- mm
-			if forwards != nil {
-				mm.IgnoreThreadId = true
-				for _, forward := range forwards {
-					if ok, err := s.mb.db.IsForwardNo(forward.ChatID, video.Snippet.ChannelId); err != nil && !errors.Is(err, sql.ErrNoRows) {
-						log.Printf("error IsForwardNo: %+v", err)
-						continue
-					} else if ok {
-						log.Printf("%d %s is no forward", forward.ChatID, video.Snippet.ChannelId)
-						continue
-					}
-					if forward.RegexBan.IsValue() {
-						re, err := regexp.Compile(forward.RegexBan.GetOrZero())
-						if err != nil {
-							log.Printf("failed to compile regex: %v", err)
-							continue
-						}
-						if re.MatchString(videoTitle) {
-							log.Printf("%s match forward regexBan: %s", video.Id, video.Snippet.Title)
-							continue
-						}
-					}
-					if forward.Regex.IsValue() {
-						re, err := regexp.Compile(forward.Regex.GetOrZero())
-						if err != nil {
-							log.Printf("failed to compile regex: %v", err)
-							continue
-						}
-						if re.MatchString(videoTitle) {
-							log.Printf("%s match forward regex: %s", video.Id, video.Snippet.Title)
-							if msgForward, ok := s.mb.bot.msgForwards[forward.ChatID]; !ok {
-								log.Printf("error msgForwards map")
-							} else {
-								msgForward <- mm
-							}
+					if re.MatchString(videoTitle) {
+						log.Printf("%s match forward regex: %s", video.Id, video.Snippet.Title)
+						if msgForward, ok := s.mb.bot.msgForwards[forward.ChatID]; !ok {
+							log.Printf("error msgForwards map")
+						} else {
+							msgForward <- msg
 						}
 					}
 				}
@@ -513,11 +301,9 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(challenge))
 
-			s.mb.bot.msgChannel <- MultiMessage{
-				First: &Message{
-					text:            fmt.Sprintf("unsubscribed from channel %s", channelId),
-					messageThreadId: threadIdInt,
-				},
+			s.mb.bot.msgChannel <- Message{
+				text:            fmt.Sprintf("unsubscribed from channel %s", channelId),
+				messageThreadId: threadIdInt,
 			}
 			return
 		}
@@ -546,11 +332,9 @@ func (s *WebhookHandler) handleWebhook(w http.ResponseWriter, r *http.Request) {
 				log.Printf("failed to upsert subscription: %v", err)
 				return
 			}
-			s.mb.bot.msgChannel <- MultiMessage{
-				First: &Message{
-					text:            fmt.Sprintf("subscribed to channel %s", channelId),
-					messageThreadId: threadIdInt,
-				},
+			s.mb.bot.msgChannel <- Message{
+				text:            fmt.Sprintf("subscribed to channel %s", channelId),
+				messageThreadId: threadIdInt,
 			}
 		}
 

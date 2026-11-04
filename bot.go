@@ -26,9 +26,9 @@ type BotHelper struct {
 
 	bot *gotgbot.Bot
 
-	msgChannel chan MultiMessage
+	msgChannel chan Message
 
-	msgForwards map[int64]chan MultiMessage
+	msgForwards map[int64]chan Message
 
 	ctx context.Context
 }
@@ -59,12 +59,12 @@ func NewBot(mb *MargaretBot) error {
 		return err
 	}
 
-	msgForwards := make(map[int64]chan MultiMessage)
+	msgForwards := make(map[int64]chan Message)
 
 	b := &BotHelper{
 		mb:          mb,
 		bot:         bot,
-		msgChannel:  make(chan MultiMessage),
+		msgChannel:  make(chan Message),
 		msgForwards: msgForwards,
 		ctx:         context.Background(),
 	}
@@ -73,7 +73,7 @@ func NewBot(mb *MargaretBot) error {
 	forwards, err := mb.db.GetForwards()
 	if err == nil && forwards != nil {
 		for _, forward := range forwards {
-			msgForwards[forward.ChatID] = make(chan MultiMessage)
+			msgForwards[forward.ChatID] = make(chan Message)
 			go b.telegramWorker(forward.ChatID, msgForwards[forward.ChatID])
 		}
 	}
@@ -746,7 +746,7 @@ func (b *BotHelper) handleForwardCommand(bot *gotgbot.Bot, ctx *ext.Context) err
 		return err
 	}
 
-	b.msgForwards[chatId] = make(chan MultiMessage)
+	b.msgForwards[chatId] = make(chan Message)
 	go b.telegramWorker(chatId, b.msgForwards[chatId])
 
 	_, err = ctx.EffectiveMessage.Reply(bot, fmt.Sprintf("%d subscribe to forward successful", forward.ChatID), nil)
