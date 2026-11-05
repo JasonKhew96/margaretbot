@@ -275,7 +275,28 @@ func BuildRichMessage(opt RichMessageOpt) gotgbot.InputRichMessage {
 			return k == opt.DefaultLanguage
 		})
 	}
-	if len(keys) > 0 {
+	if len(keys) == 1 {
+		l := opt.Localizations[keys[0]]
+		inputRichBlocks = append(inputRichBlocks, gotgbot.InputRichBlockDetails{
+			Summary: gotgbot.RichTextString("翻译"),
+			Blocks: []gotgbot.InputRichBlock{
+				gotgbot.InputRichBlockBlockQuotation{
+					Blocks: []gotgbot.InputRichBlock{
+						gotgbot.InputRichBlockParagraph{
+							Text: gotgbot.RichTextString(l.Title),
+						},
+					},
+				},
+				gotgbot.InputRichBlockBlockQuotation{
+					Blocks: []gotgbot.InputRichBlock{
+						gotgbot.InputRichBlockParagraph{
+							Text: gotgbot.RichTextString(l.Description),
+						},
+					},
+				},
+			},
+		})
+	} else if len(keys) > 0 {
 		slices.SortFunc(keys, func(a, b string) int {
 			pA, pB := getPriority(a), getPriority(b)
 			if pA != pB {
