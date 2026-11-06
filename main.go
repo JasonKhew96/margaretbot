@@ -88,7 +88,7 @@ func loop(margaret *MargaretBot) {
 
 	for _, sub := range subs {
 		log.Println("renewing subscription for channel", sub.ChannelID)
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Second)
 		newSecret := sha256.Sum256([]byte(margaret.config.Secret))
 		callbackUrl := fmt.Sprintf("https://%s/webhook/%s/%d/%s", margaret.config.ServerDomain, fmt.Sprintf("%x", newSecret), sub.ThreadID, sub.ChannelID)
 		topicUrl := fmt.Sprintf("https://www.youtube.com/xml/feeds/videos.xml?channel_id=%s", sub.ChannelID)
