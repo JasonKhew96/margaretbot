@@ -63,6 +63,8 @@ func getUtf16Len(s string) int64 {
 	return int64(len(utf16.Encode([]rune(s))))
 }
 
+var preferedLocaleList = []string{"zh-Hant", "zh-TW", "zh-HK", "zh-Hans", "zh-CN", "zh", "en-US", "en-GB", "en"}
+
 var priorityOrder = map[string]int{
 	"zh-Hant": 1,
 	"zh-TW":   2,
@@ -71,7 +73,8 @@ var priorityOrder = map[string]int{
 	"zh-CN":   5,
 	"zh":      6,
 	"en-US":   7,
-	"en":      8,
+	"en-GB":   8,
+	"en":      9,
 }
 
 func getPriority(key string) int {
@@ -271,8 +274,10 @@ func BuildRichMessage(opt RichMessageOpt) gotgbot.InputRichMessage {
 
 	keys := slices.Collect(maps.Keys(opt.Localizations))
 	if len(opt.DefaultLanguage) > 0 {
+		preferedLocaleMap := make(map[string]struct{}, len(preferedLocaleList))
 		keys = slices.DeleteFunc(keys, func(k string) bool {
-			return k == opt.DefaultLanguage
+			_, ok := preferedLocaleMap[k]
+			return k == opt.DefaultLanguage || !ok
 		})
 	}
 	if len(keys) == 1 {
@@ -411,9 +416,7 @@ func chatId2mtprotoId(chatId int64) int64 {
 }
 
 func ytGetPreferedLocale(l map[string]youtube.VideoLocalization, d string) *youtube.VideoLocalization {
-	preferedLocale := []string{"zh-Hant", "zh-TW", "zh-HK", "zh-Hans", "zh-CN", "zh", "en-US", "en"}
-
-	for _, locale := range preferedLocale {
+	for _, locale := range preferedLocaleList {
 		if v, ok := l[locale]; ok && locale != d {
 			return &v
 		}
